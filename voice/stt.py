@@ -1,30 +1,62 @@
-import numpy as np
 from faster_whisper import WhisperModel
+import numpy as np
+
 
 class STT:
-    def __init__(self):
-        self.model = WhisperModel(
-    "base",
-    device="cpu",
-    compute_type="int8"
-)
+    """
+    Production Whisper STT for command-based assistant.
+    """
 
-    def transcribe(self, audio_bytes: bytes) -> str:
-        # Convert bytes → int16 numpy
+    def __init__(self):
+
+        try:
+            print("🔄 Loading Whisper on GPU...")
+            self.model = WhisperModel(
+                "small.en",
+                device="cuda",
+                compute_type="float16"
+            )
+            print("✅ GPU mode enabled")
+        except Exception as e:
+            print("⚠️ GPU unavailable, falling back to CPU:", e)
+            self.model = WhisperModel(
+                "small.en",
+                device="cpu",
+                compute_type="int8"
+            )
+
+    # -----------------------------------------------------
+
+    def transcribe(self, audio_bytes: bytes, input_sample_rate: int) -> str:
+
+        if not audio_bytes:
+            return ""
+
         audio = np.frombuffer(audio_bytes, dtype=np.int16)
 
-        # Convert to float32 [-1, 1]
+        if audio.size == 0:
+            return ""
+
         audio = audio.astype(np.float32) / 32768.0
 
-        # IMPORTANT: must be 1-D array
-        if audio.ndim != 1:
-            audio = audio.flatten()
+        # Ignore very short clips
+        if len(audio) < input_sample_rate * 0.2:
+            return ""
 
-        # Call transcribe WITHOUT sampling_rate
-        segments, _ = self.model.transcribe(
+        segments, info = self.model.transcribe(
             audio,
+            language="en",
             beam_size=1,
-            language="en"
+            best_of=1,
+            temperature=0.0,
+            vad_filter=True,
+            initial_prompt=(
+                "assistant open close delete search chrome google "
+                "calculator notepad explorer file system command"
+            )
         )
 
-        return " ".join(seg.text for seg in segments).strip().lower()
+        text = " ".join(seg.text for seg in segments).strip().lower()
+        text = text.replace(".", "").replace(",", "")
+
+        return text

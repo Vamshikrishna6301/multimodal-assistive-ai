@@ -1,13 +1,21 @@
 import sounddevice as sd
-from config import SAMPLE_RATE, CHANNELS
+
 
 class MicrophoneStream:
+    """
+    Ultra-stable microphone stream.
+    Uses default system input device.
+    """
+
     def __init__(self):
+        device_info = sd.query_devices(None, 'input')
+        self.sample_rate = int(device_info["default_samplerate"])
+
         self.stream = sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
+            samplerate=self.sample_rate,
+            channels=1,
             dtype="int16",
-            blocksize=int(SAMPLE_RATE * 0.03),
+            blocksize=0  # let PortAudio decide (most stable)
         )
 
     def __enter__(self):
@@ -19,5 +27,8 @@ class MicrophoneStream:
         self.stream.close()
 
     def read(self):
-        audio, _ = self.stream.read(self.stream.blocksize)
+        audio, _ = self.stream.read(1024)
         return audio.tobytes()
+
+    def get_sample_rate(self):
+        return self.sample_rate

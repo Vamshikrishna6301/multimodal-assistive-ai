@@ -416,4 +416,4 @@ Next development starts from **Phase 2 (Intent & Mode Engine)**.
 
 ---
 
-> “Build intelligence only after safety is guaranteed.”
+ “Build intelligence only after safety is guaranteed.”
