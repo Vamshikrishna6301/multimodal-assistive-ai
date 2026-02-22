@@ -1,5 +1,6 @@
 sounddevice
 numpy
-webrtcvad
+webrtcvad-wheels
 faster-whisper
 pyttsx3
+pyautogui
