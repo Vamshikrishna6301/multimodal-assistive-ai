@@ -1,10 +1,14 @@
 import webrtcvad
-from config import SAMPLE_RATE, FRAME_DURATION_MS, VAD_AGGRESSIVENESS
+
 
 class VAD:
+    """
+    Balanced WebRTC VAD
+    """
+
     def __init__(self):
-        self.vad = webrtcvad.Vad(VAD_AGGRESSIVENESS)
-        self.frame_bytes = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
+        self.sample_rate = 16000
+        self.vad = webrtcvad.Vad(2)  # balanced mode
 
     def is_speech(self, frame: bytes) -> bool:
-        return self.vad.is_speech(frame, SAMPLE_RATE)
+        return self.vad.is_speech(frame, self.sample_rate)

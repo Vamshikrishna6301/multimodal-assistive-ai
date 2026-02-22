@@ -1,48 +1,56 @@
 """
-Safety Engine - Phase 2 (Production Grade)
+Safety Engine - Phase 2 Production Hardened
 
-Implements risk scoring, confirmation requirements,
-and execution blocking based on policy rules.
-Inspired by OpenAssistant & enterprise moderation pipelines.
+Unifies:
+- Parser risk scoring
+- IntentType-based policy rules
+- Pattern escalation
+- Confirmation logic
+- Blocking logic
+
+Does NOT overwrite parser risk blindly.
 """
 
 import re
 from typing import Dict
 
-from .intent_schema import Intent, Mode
+from .intent_schema import Intent, Mode, IntentType
 
 
 class SafetyEngine:
-    """
-    Risk scoring + confirmation + blocking engine
-    """
 
     def __init__(self):
-        self.high_risk_actions = {
-            "DELETE": 7,
-            "SHUTDOWN": 9,
-            "RESTART": 6,
+
+        # IntentType-based baseline risk
+        self.intent_risk_policy: Dict[IntentType, int] = {
+            IntentType.FILE_OPERATION: 7,
+            IntentType.SYSTEM_CONTROL: 8,
+            IntentType.OPEN_APP: 2,
+            IntentType.SEARCH: 1,
+            IntentType.TYPE_TEXT: 1,
         }
 
-        self.medium_risk_actions = {
-            "OPEN_APP": 2,
-            "CLOSE_APP": 3,
-        }
-
+        # Pattern escalation
         self.danger_patterns = [
             r"delete all",
             r"format",
             r"remove system",
             r"shutdown now",
-            r"wipe"
+            r"wipe",
+            r"all files",
         ]
+
+        # Hard block threshold
+        self.block_threshold = 9
+
+        # Confirmation threshold
+        self.confirmation_threshold = 6
 
     # =====================================================
 
     def evaluate(self, intent: Intent, current_mode: Mode) -> Intent:
         """
-        Evaluate intent safety.
-        Modifies intent in-place.
+        Evaluate safety without destroying parser logic.
         """
 
         # -------------------------------------------------
@@ -54,44 +62,31 @@ class SafetyEngine:
             return intent
 
         # -------------------------------------------------
-        # Assign base risk
+        # Baseline policy risk (do NOT override higher risk)
         # -------------------------------------------------
-        intent.risk_level = self._assign_risk(intent)
+        policy_risk = self.intent_risk_policy.get(intent.intent_type, 1)
+        intent.risk_level = max(intent.risk_level, policy_risk)
 
         # -------------------------------------------------
         # Pattern-based escalation
         # -------------------------------------------------
         for pattern in self.danger_patterns:
-            if re.search(pattern, intent.text):
+            if re.search(pattern, intent.text.lower()):
                 intent.risk_level = max(intent.risk_level, 8)
                 intent.context["danger_pattern_detected"] = pattern
 
         # -------------------------------------------------
-        # Confirmation rules
+        # Blocking rule
         # -------------------------------------------------
-        if intent.risk_level >= 6:
+        if intent.risk_level >= self.block_threshold:
+            intent.blocked_reason = "Operation blocked due to extreme risk"
+            intent.requires_confirmation = False
+            return intent
+
+        # -------------------------------------------------
+        # Confirmation rule
+        # -------------------------------------------------
+        if intent.risk_level >= self.confirmation_threshold:
             intent.requires_confirmation = True
 
-        # -------------------------------------------------
-        # Hard blocking rule
-        # -------------------------------------------------
-        if intent.risk_level >= 9:
-            intent.blocked_reason = "Operation blocked due to extreme risk"
-
         return intent
-
-    # =====================================================
-
-    def _assign_risk(self, intent: Intent) -> int:
-        """
-        Assign baseline risk score.
-        """
-
-        if intent.action in self.high_risk_actions:
-            return self.high_risk_actions[intent.action]
-
-        if intent.action in self.medium_risk_actions:
-            return self.medium_risk_actions[intent.action]
-
-        # Low-risk default
-        return 1

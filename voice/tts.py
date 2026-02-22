@@ -4,33 +4,24 @@ import threading
 
 class TTS:
     """
-    Stable low-latency offline TTS.
-    Reinitializes engine per call to avoid silent failures.
+    Stable non-blocking TTS
     """
 
     def __init__(self):
         self._lock = threading.Lock()
 
-    # =====================================================
-
-    def speak(self, text: str, blocking: bool = True):
+    def speak(self, text: str):
 
         if not text:
             return
 
-        if blocking:
-            self._speak(text)
-        else:
-            threading.Thread(
-                target=self._speak,
-                args=(text,),
-                daemon=True
-            ).start()
-
-    # =====================================================
+        threading.Thread(
+            target=self._speak,
+            args=(text,),
+            daemon=True
+        ).start()
 
     def _speak(self, text: str):
-
         with self._lock:
             engine = pyttsx3.init()
             engine.setProperty("rate", 180)
@@ -43,8 +34,3 @@ class TTS:
             engine.say(text)
             engine.runAndWait()
             engine.stop()
-
-    # =====================================================
-
-    def stop(self):
-        pass

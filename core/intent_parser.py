@@ -1,16 +1,18 @@
 """
-Intent Parser - Phase 2 (Production Hardened)
+Intent Parser - Phase 2 Production Upgrade (Flexible NLP)
 
-Deterministic rule-based parser with:
-- Input normalization
-- Filler word removal
-- Cleaner entity extraction
-- Robust command detection
+Upgraded to:
+- Keyword detection anywhere in sentence
+- Multi-word normalization (shut down → shutdown)
+- Natural speech tolerance
+- Structured parameters
+- Risk scoring
+- Confirmation flagging
 """
 
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from core.intent_schema import (
     Intent,
@@ -24,17 +26,17 @@ class IntentParser:
 
     def __init__(self):
 
-        # Order matters (longer phrases first)
+        # Keyword → (IntentType, risk_level)
         self.command_keywords = {
-            "open": "OPEN_APP",
-            "close": "CLOSE_APP",
-            "delete": "DELETE",
-            "remove": "DELETE",
-            "shutdown": "SHUTDOWN",
-            "restart": "RESTART",
-            "search": "SEARCH",
-            "type": "TYPE_TEXT",
-            "write": "TYPE_TEXT"
+            "open": (IntentType.OPEN_APP, 1),
+            "close": (IntentType.SYSTEM_CONTROL, 2),
+            "delete": (IntentType.FILE_OPERATION, 8),
+            "remove": (IntentType.FILE_OPERATION, 8),
+            "shutdown": (IntentType.SYSTEM_CONTROL, 9),
+            "restart": (IntentType.SYSTEM_CONTROL, 7),
+            "search": (IntentType.SEARCH, 1),
+            "type": (IntentType.TYPE_TEXT, 1),
+            "write": (IntentType.TYPE_TEXT, 1),
         }
 
         self.question_patterns = [
@@ -53,15 +55,24 @@ class IntentParser:
             "exit dictation"
         ]
 
-        # Common filler words to ignore in targets
-        self.filler_words = {"the", "a", "an", "please", "for", "to"}
+        self.filler_words = {
+            "the", "a", "an", "please", "for", "to",
+            "about", "can", "you", "could", "would",
+            "hey", "assistant"
+        }
 
+    # =========================================================
+    # MAIN PARSE
     # =========================================================
 
     def parse(self, text: str, current_mode: Mode = Mode.COMMAND) -> Intent:
+
         timestamp = time.time()
         original_text = text
         text = self._normalize(text)
+
+        # Normalize common variations
+        text = text.replace("shut down", "shutdown")
 
         # -----------------------------------------------------
         # Dictation override
@@ -86,14 +97,15 @@ class IntentParser:
         # -----------------------------------------------------
         # Command detection
         # -----------------------------------------------------
-        action, keyword = self._detect_command(text)
+        intent_type, risk_level, keyword = self._detect_command(text)
 
-        if action:
+        if intent_type:
             target = self._extract_target(text, keyword)
             return self._create_command_intent(
                 original_text,
-                action,
+                intent_type,
                 target,
+                risk_level,
                 timestamp
             )
 
@@ -106,38 +118,44 @@ class IntentParser:
             action="UNKNOWN",
             confidence=0.3,
             confidence_source="fallback",
+            risk_level=0,
             timestamp=timestamp
         )
 
     # =========================================================
-    # Command Detection
+    # COMMAND DETECTION
     # =========================================================
 
-    def _detect_command(self, text: str) -> (Optional[str], Optional[str]):
+    def _detect_command(self, text: str) -> Tuple[Optional[IntentType], int, Optional[str]]:
 
-        for keyword, action in self.command_keywords.items():
+        for keyword, (intent_type, risk_level) in self.command_keywords.items():
 
-            # Match at start OR after polite phrases
-            pattern = rf"^(please\s+)?{keyword}\b"
+            # Match keyword anywhere in sentence
+            pattern = rf"\b{keyword}\b"
 
             if re.search(pattern, text):
-                return action, keyword
+                return intent_type, risk_level, keyword
 
-        return None, None
+        return None, 0, None
 
     # =========================================================
-    # Target Extraction
+    # TARGET EXTRACTION
     # =========================================================
 
     def _extract_target(self, text: str, keyword: str) -> Optional[str]:
 
-        # Remove leading keyword
-        text = re.sub(rf"^(please\s+)?{keyword}\b", "", text).strip()
+        parts = text.split(keyword, 1)
 
-        if not text:
+        if len(parts) < 2:
             return None
 
-        tokens = text.split()
+        text_after_keyword = parts[1].strip()
+
+        if not text_after_keyword:
+            return None
+
+        tokens = text_after_keyword.split()
+
         cleaned_tokens = [
             token for token in tokens
             if token not in self.filler_words
@@ -148,41 +166,48 @@ class IntentParser:
         return target if target else None
 
     # =========================================================
-    # Intent Creators
+    # INTENT CREATORS
     # =========================================================
 
     def _create_command_intent(
         self,
         original_text: str,
-        action: str,
+        intent_type: IntentType,
         target: Optional[str],
+        risk_level: int,
         timestamp: float
     ) -> Intent:
 
         entities: Dict[str, Entity] = {}
+        parameters: Dict[str, str] = {}
 
         if target:
             entities["target"] = Entity(
                 name="target",
                 value=target,
-                confidence=0.9,
-                entity_type="keyword"
+                confidence=0.9
             )
+            parameters["target"] = target
+
+        requires_confirmation = risk_level >= 7
 
         return Intent(
-            intent_type=IntentType.COMMAND,
+            intent_type=intent_type,
             text=original_text,
-            action=action,
+            action=intent_type.name,
             target=target,
-            confidence=0.95,
-            confidence_source="keyword",
+            parameters=parameters,
+            confidence=0.95 if risk_level < 7 else 0.85,
+            confidence_source="keyword_rule",
             entities=entities,
+            risk_level=risk_level,
+            requires_confirmation=requires_confirmation,
             timestamp=timestamp
         )
 
     # ---------------------------------------------------------
 
-    def _create_question_intent(self, original_text: str, timestamp: float):
+    def _create_question_intent(self, original_text: str, timestamp: float) -> Intent:
 
         return Intent(
             intent_type=IntentType.QUESTION,
@@ -191,12 +216,13 @@ class IntentParser:
             confidence=0.9,
             confidence_source="regex",
             mode=Mode.QUESTION,
+            risk_level=0,
             timestamp=timestamp
         )
 
     # ---------------------------------------------------------
 
-    def _create_control_intent(self, original_text: str, timestamp: float):
+    def _create_control_intent(self, original_text: str, timestamp: float) -> Intent:
 
         return Intent(
             intent_type=IntentType.CONTROL,
@@ -204,12 +230,13 @@ class IntentParser:
             action="SYSTEM_CONTROL",
             confidence=0.85,
             confidence_source="keyword",
+            risk_level=2,
             timestamp=timestamp
         )
 
     # ---------------------------------------------------------
 
-    def _create_dictation_intent(self, original_text: str, timestamp: float):
+    def _create_dictation_intent(self, original_text: str, timestamp: float) -> Intent:
 
         return Intent(
             intent_type=IntentType.DICTATION,
@@ -218,14 +245,16 @@ class IntentParser:
             confidence=0.99,
             confidence_source="mode_override",
             mode=Mode.DICTATION,
+            risk_level=0,
             timestamp=timestamp
         )
 
     # =========================================================
-    # Normalization
+    # NORMALIZATION
     # =========================================================
 
     def _normalize(self, text: str) -> str:
         text = text.lower().strip()
         text = re.sub(r"[^\w\s]", "", text)
+        text = re.sub(r"\s+", " ", text)
         return text

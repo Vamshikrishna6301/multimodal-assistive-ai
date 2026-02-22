@@ -1,15 +1,11 @@
 import sys
 import time
-import sounddevice as sd
-import numpy as np
 
 from core.fusion_engine import FusionEngine
 from voice.stt import STT
 from voice.tts import TTS
-
-
-SAMPLE_RATE = 16000
-RECORD_SECONDS = 1.6
+from voice.mic_stream import MicrophoneStream
+from voice.vad import VAD
 
 
 class VoicePhase2Assistant:
@@ -18,72 +14,131 @@ class VoicePhase2Assistant:
         self.engine = FusionEngine()
         self.stt = STT()
         self.tts = TTS()
+        self.vad = VAD()  # high aggressiveness inside VAD
         self.running = True
+
+        # Silence control
+        self.silence_threshold = 20        # frames of silence before stop
+        self.max_record_seconds = 6        # max recording duration
+        self.min_speech_frames = 8         # minimum speech frames (~240ms)
 
     # =====================================================
 
     def start(self):
-        print("\n🎤 Voice Assistant Phase 2 Started")
-        print("Say 'exit' to stop.\n")
+        print("\n🎤 Phase 2 Assistant (Noise-Robust Mode)")
+        print("Speak naturally. Say 'exit' to stop.\n")
 
-        while self.running:
+        with MicrophoneStream() as mic:
+
+            sample_rate = mic.get_sample_rate()
 
             try:
-                print("Listening...")
+                while self.running:
 
-                audio = sd.rec(
-                    int(SAMPLE_RATE * RECORD_SECONDS),
-                    samplerate=SAMPLE_RATE,
-                    channels=1,
-                    dtype="int16"
-                )
+                    audio_buffer = []
+                    silence_counter = 0
+                    speech_detected = False
+                    speech_frames = 0
+                    start_time = time.time()
 
-                sd.wait()
+                    # =========================
+                    # Capture speech segment
+                    # =========================
+                    while True:
+                        frame_bytes = mic.read()
 
-                audio_bytes = audio.flatten().tobytes()
+                        try:
+                            is_speech = self.vad.is_speech(frame_bytes)
+                        except Exception:
+                            continue  # skip bad frames safely
 
-                text = self.stt.transcribe(audio_bytes, SAMPLE_RATE)
+                        if is_speech:
+                            speech_detected = True
+                            silence_counter = 0
+                            speech_frames += 1
+                            audio_buffer.append(frame_bytes)
+                        else:
+                            if speech_detected:
+                                silence_counter += 1
+                                audio_buffer.append(frame_bytes)
 
-                if not text:
-                    continue
+                        # Stop after silence
+                        if speech_detected and silence_counter > self.silence_threshold:
+                            break
 
-                print(f"You said: {text}")
+                        # Stop after max duration
+                        if time.time() - start_time > self.max_record_seconds:
+                            break
 
-                if "exit" in text:
-                    self._shutdown()
-                    break
+                    # =========================
+                    # Filter very short speech
+                    # =========================
+                    if speech_frames < self.min_speech_frames:
+                        continue
 
-                decision = self.engine.process_text(text)
-                self._handle_decision(decision)
+                    if not audio_buffer:
+                        continue
+
+                    audio_bytes = b"".join(audio_buffer)
+
+                    # =========================
+                    # Transcribe
+                    # =========================
+                    text = self.stt.transcribe(audio_bytes, sample_rate)
+
+                    if not text:
+                        continue
+
+                    text = text.strip().lower()
+
+                    # Ignore very short noise transcripts
+                    if len(text.split()) < 2 and text not in ["yes", "no", "exit"]:
+                        continue
+
+                    print(f"\n🗣 You said: {text}")
+
+                    if "exit" in text:
+                        self._shutdown()
+                        break
+
+                    # =========================
+                    # Process through engine
+                    # =========================
+                    decision = self.engine.process_text(text)
+
+                    if decision is None:
+                        print("⏳ Waiting for confirmation...")
+                        self.tts.speak("Please say yes or no.")
+                        continue
+
+                    self._handle_decision(decision)
 
             except KeyboardInterrupt:
                 self._shutdown()
                 sys.exit(0)
 
-            except Exception as e:
-                print("Runtime Error:", e)
-                time.sleep(0.3)
-
     # =====================================================
 
     def _handle_decision(self, decision):
 
-        data = decision.to_dict()
+        if hasattr(decision, "to_dict"):
+            data = decision.to_dict()
+        else:
+            print("Unexpected decision type:", type(decision))
+            return
 
-        print("\n--- Decision ---")
-        print(data)
-        print("----------------\n")
+        print("Decision:", data)
 
-        response = data.get("message")
+        message = data.get("message")
 
-        if response:
-            self.tts.speak(response, blocking=True)
+        if message:
+            self.tts.speak(message)
 
     # =====================================================
 
     def _shutdown(self):
-        print("👋 Shutting down assistant.")
-        self.tts.speak("Goodbye.", blocking=True)
+        print("👋 Shutting down.")
+        self.tts.speak("Goodbye.")
         self.running = False
 
 

@@ -4,7 +4,7 @@ import numpy as np
 
 class STT:
     """
-    Production Whisper STT for command-based assistant.
+    Production Whisper STT
     """
 
     def __init__(self):
@@ -25,8 +25,6 @@ class STT:
                 compute_type="int8"
             )
 
-    # -----------------------------------------------------
-
     def transcribe(self, audio_bytes: bytes, input_sample_rate: int) -> str:
 
         if not audio_bytes:
@@ -39,8 +37,8 @@ class STT:
 
         audio = audio.astype(np.float32) / 32768.0
 
-        # Ignore very short clips
-        if len(audio) < input_sample_rate * 0.2:
+        # Ignore too short audio
+        if len(audio) < input_sample_rate * 0.3:
             return ""
 
         segments, info = self.model.transcribe(
@@ -49,11 +47,7 @@ class STT:
             beam_size=1,
             best_of=1,
             temperature=0.0,
-            vad_filter=True,
-            initial_prompt=(
-                "assistant open close delete search chrome google "
-                "calculator notepad explorer file system command"
-            )
+            vad_filter=False
         )
 
         text = " ".join(seg.text for seg in segments).strip().lower()
