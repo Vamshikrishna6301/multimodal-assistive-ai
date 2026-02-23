@@ -1,48 +1,61 @@
-import pyttsx3
+import subprocess
 import threading
+import queue
 
 
 class TTS:
 
     def __init__(self, runtime=None):
-        self._lock = threading.Lock()
-        self._engine = pyttsx3.init()
-        self._engine.setProperty("rate", 180)
-        self._engine.setProperty("volume", 1.0)
         self._runtime = runtime
-        self._speaking = False
+        self._queue = queue.Queue()
+        self._stop_event = threading.Event()
+
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
 
     def speak(self, text: str):
 
         if not text:
             return
 
-        threading.Thread(
-            target=self._speak,
-            args=(text,),
-            daemon=True
-        ).start()
+        self._queue.put(text)
 
-    def _speak(self, text: str):
+    def _run_loop(self):
 
-        with self._lock:
-            self._speaking = True
+        while not self._stop_event.is_set():
+
+            try:
+                text = self._queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
 
             if self._runtime:
                 self._runtime.set_speaking(True)
 
-            self._engine.say(text)
-            self._engine.runAndWait()
+            try:
+                # Escape quotes properly
+                safe_text = text.replace('"', '')
+                command = (
+                    'Add-Type –AssemblyName System.Speech; '
+                    f'(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("{safe_text}")'
+                )
 
-            self._speaking = False
+                subprocess.run(
+                    ["powershell", "-Command", command],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+            except Exception as e:
+                print("⚠️ TTS Error:", e)
 
             if self._runtime:
                 self._runtime.set_speaking(False)
 
     def stop(self):
-        with self._lock:
-            self._engine.stop()
-            self._speaking = False
+        if self._runtime:
+            self._runtime.set_speaking(False)
 
-            if self._runtime:
-                self._runtime.set_speaking(False)
+    def shutdown(self):
+        self._stop_event.set()
+        self._thread.join(timeout=2)

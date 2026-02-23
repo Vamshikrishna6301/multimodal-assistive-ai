@@ -129,7 +129,6 @@ class VoiceLoop:
         while self.runtime.running:
 
             try:
-                print("DEBUG: waiting for audio")
 
                 try:
                     audio = self.audio_queue.get(timeout=1)
@@ -141,7 +140,6 @@ class VoiceLoop:
                 while self.runtime.is_speaking() and (time.time() - wait_start) < 2.0:
                     time.sleep(0.05)
 
-                print("DEBUG: running transcribe")
 
                 text = self.stt.transcribe(audio, 16000)
 
