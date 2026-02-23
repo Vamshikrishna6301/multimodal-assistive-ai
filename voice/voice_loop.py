@@ -24,8 +24,11 @@ class VoiceLoop:
         self.stt = STT()
         self.tts = TTS(runtime=self.runtime)
 
+        # 🔥 Fusion owns ContextMemory
         self.fusion = FusionEngine()
-        self.router = DecisionRouter()
+
+        # 🔥 Inject shared memory into router
+        self.router = DecisionRouter(self.fusion.memory)
 
         self.audio_queue = queue.Queue()
         self.text_queue = queue.Queue()
@@ -87,7 +90,7 @@ class VoiceLoop:
         try:
             with MicrophoneStream() as mic:
 
-                MIN_SPEECH_FRAMES = 8  # ~240ms minimum speech
+                MIN_SPEECH_FRAMES = 8
 
                 while self.runtime.running:
 
@@ -106,14 +109,11 @@ class VoiceLoop:
 
                         audio = b"".join(self.buffer)
                         self.buffer.clear()
-                        # reset silence counter after segment capture
                         self.silence_frames = 0
 
-                        # push audio to processing queue
                         try:
                             self.audio_queue.put(audio, block=False)
                         except Exception:
-                            # fallback to blocking put if non-blocking fails
                             self.audio_queue.put(audio)
 
         except Exception as e:
@@ -129,17 +129,15 @@ class VoiceLoop:
         while self.runtime.running:
 
             try:
-
                 try:
                     audio = self.audio_queue.get(timeout=1)
                 except queue.Empty:
                     continue
 
-                # wait briefly if assistant is speaking so we don't drop user speech
+                # Wait briefly if assistant speaking
                 wait_start = time.time()
                 while self.runtime.is_speaking() and (time.time() - wait_start) < 2.0:
                     time.sleep(0.05)
-
 
                 text = self.stt.transcribe(audio, 16000)
 
@@ -148,15 +146,15 @@ class VoiceLoop:
 
                 words = text.split()
 
-                # simple short-utterance filter; allow control words
+                # Allow control words even if short
                 if len(words) <= 1 and text not in ["stop", "exit", "yes", "no"]:
                     continue
 
-                # If still speaking after waiting, still accept the text to avoid losing user input
                 if self.runtime.is_speaking():
                     print("DEBUG: runtime still speaking, accepting text to avoid loss")
 
                 print(f"\n🗣️ Heard: {text}")
+
                 try:
                     self.text_queue.put(text, block=False)
                 except Exception:
@@ -181,31 +179,40 @@ class VoiceLoop:
 
                 text = text.lower().strip()
 
-                # If awaiting confirmation, handle yes/no here
+                # ---------------------------------------------
+                # CONFIRMATION HANDLING
+                # ---------------------------------------------
                 if self.runtime.awaiting_confirmation:
                     print("DEBUG: awaiting confirmation, got:", text)
+
                     if text in ["yes", "y", "confirm"]:
-                        pending = self.runtime.pending_intent
                         print("🔒 Confirmation received: executing pending action")
+
+                        pending = self.runtime.pending_intent
                         self._execute_confirmed(pending)
+
                         self.runtime.clear_confirmation()
-                        # wait briefly after execution to let TTS finish and audio settle
+
                         wait_start = time.time()
                         while self.runtime.is_speaking() and (time.time() - wait_start) < 5.0:
                             time.sleep(0.05)
+
                         time.sleep(0.15)
                         continue
+
                     if text in ["no", "n", "cancel"]:
                         print("🔐 Confirmation declined: cancelling action")
                         self.tts.speak("Action cancelled.")
                         self.runtime.clear_confirmation()
-                        # small settle
                         time.sleep(0.15)
                         continue
-                    # otherwise ignore unrelated speech while waiting
+
                     print("DEBUG: still awaiting confirmation; ignoring input")
                     continue
 
+                # ---------------------------------------------
+                # SYSTEM COMMANDS
+                # ---------------------------------------------
                 if "exit assistant" in text or text in ["exit", "quit"]:
                     print("🛑 Assistant shutting down...")
                     self.tts.speak("Shutting down assistant.")
@@ -232,10 +239,10 @@ class VoiceLoop:
 
                 self._handle_intent(text)
 
-                # After handling intent, wait a short time if speaking to avoid clipping next user audio
                 wait_start = time.time()
                 while self.runtime.is_speaking() and (time.time() - wait_start) < 5.0:
                     time.sleep(0.05)
+
                 time.sleep(0.08)
 
             except Exception as e:
@@ -262,7 +269,6 @@ class VoiceLoop:
 
         if status == "NEEDS_CONFIRMATION":
             print(f"🔐 {message}")
-            # Set pending confirmation and prompt user
             self.runtime.set_confirmation(decision_dict)
             self.tts.speak(message or "Please confirm.")
             return
@@ -278,16 +284,32 @@ class VoiceLoop:
                 print("🤖 Assistant: Done.")
                 self.tts.speak("Done.")
 
+    # =====================================================
+    # EXECUTE CONFIRMED
+    # =====================================================
+
     def _execute_confirmed(self, decision_dict: dict):
-        """Execute a decision that was previously confirmed by the user."""
+
         try:
-            response = self.router.route(decision_dict)
+            if not decision_dict:
+                self.tts.speak("No pending action to execute.")
+                return
+
+            confirmed_decision = decision_dict.copy()
+            confirmed_decision["status"] = "APPROVED"
+
+            confirmed_decision.pop("requires_confirmation", None)
+            confirmed_decision.pop("confirmation_message", None)
+
+            response = self.router.route(confirmed_decision)
+
             if response and hasattr(response, "spoken_message"):
                 print(f"🤖 Assistant: {response.spoken_message}")
                 self.tts.speak(response.spoken_message)
             else:
                 print("🤖 Assistant: Done.")
                 self.tts.speak("Done.")
+
         except Exception as e:
             print("⚠️ Execution after confirmation failed:", e)
             self.tts.speak("I failed to execute the action.")

@@ -32,8 +32,9 @@ class DecisionRouter:
         "KNOWLEDGE_QUERY",
     }
 
-    def __init__(self):
-        self.execution_engine = ExecutionEngine()
+    def __init__(self, context_memory):
+        # 🔥 Shared ContextMemory injected here
+        self.execution_engine = ExecutionEngine(context_memory)
         self.utility_engine = UtilityEngine()
         self.llm_engine = LLMEngine()
         self.wikipedia_engine = KnowledgeEngine()
@@ -110,7 +111,6 @@ class DecisionRouter:
             "who was",
         ]
 
-        # Only use Wikipedia for PERSON queries
         if any(query_lower.startswith(prefix) for prefix in simple_prefixes):
             return True
 

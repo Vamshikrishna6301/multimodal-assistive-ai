@@ -1,6 +1,6 @@
 import time
 import re
-from typing import Optional, Dict
+from typing import Dict
 
 from .intent_schema import Intent, IntentType, Mode
 from .intent_parser import IntentParser
@@ -38,31 +38,12 @@ class FusionEngine:
         self.memory = ContextMemory()
         self.safety = SafetyEngine()
 
-        self.pending_confirmation = None
-        self.confirmation_timestamp = None
-        self.confirmation_timeout = 10
-
-        self.intent_confidence_threshold = 0.4  # relaxed
-
-    # =========================================================
+        self.intent_confidence_threshold = 0.4
 
     def process_text(self, text: str) -> Decision:
 
         start_time = time.time()
         text = self._normalize_input(text)
-
-        if self.pending_confirmation:
-            if self._confirmation_expired():
-                expired = self.pending_confirmation
-                self._clear_confirmation()
-                return self._finalize(
-                    Decision("BLOCKED", expired, "Confirmation timed out"),
-                    start_time
-                )
-            return self._finalize(
-                self._handle_confirmation(text),
-                start_time
-            )
 
         intent = self.parser.parse(
             text,
@@ -72,8 +53,8 @@ class FusionEngine:
         if intent.intent_type == IntentType.CONTROL:
             self._handle_mode_control(intent)
 
+        # Only enrich — DO NOT update here
         intent = self.memory.enrich(intent)
-        self.memory.update(intent)
 
         intent = self.safety.evaluate(intent, self.mode_manager.get_mode())
 
@@ -83,7 +64,6 @@ class FusionEngine:
                 start_time
             )
 
-        # 🔥 Only block low confidence if action is UNKNOWN
         if intent.confidence < self.intent_confidence_threshold and intent.action == "UNKNOWN":
             return self._finalize(
                 Decision("BLOCKED", intent, "Low confidence input"),
@@ -91,8 +71,6 @@ class FusionEngine:
             )
 
         if intent.requires_confirmation:
-            self.pending_confirmation = intent
-            self.confirmation_timestamp = time.time()
             return self._finalize(
                 Decision(
                     "NEEDS_CONFIRMATION",
@@ -107,28 +85,6 @@ class FusionEngine:
             start_time
         )
 
-    # =========================================================
-
-    def _handle_confirmation(self, text: str) -> Decision:
-
-        if text.startswith(("yes", "confirm", "proceed", "do it")):
-            confirmed = self.pending_confirmation
-            self._clear_confirmation()
-            return Decision("APPROVED", confirmed, "Action confirmed")
-
-        if text.startswith(("no", "cancel", "stop")):
-            cancelled = self.pending_confirmation
-            self._clear_confirmation()
-            return Decision("BLOCKED", cancelled, "Action cancelled")
-
-        return Decision(
-            "NEEDS_CONFIRMATION",
-            self.pending_confirmation,
-            "Please respond with yes or no"
-        )
-
-    # =========================================================
-
     def _handle_mode_control(self, intent: Intent):
         text = intent.text.lower()
 
@@ -141,21 +97,10 @@ class FusionEngine:
         elif "enable" in text:
             self.mode_manager.set_mode(Mode.LISTENING, "enable_assistant")
 
-    # =========================================================
-
     def _normalize_input(self, text: str) -> str:
         text = text.strip().lower()
         text = re.sub(r"[^\w\s]", "", text)
         return text
-
-    def _confirmation_expired(self) -> bool:
-        if not self.confirmation_timestamp:
-            return False
-        return (time.time() - self.confirmation_timestamp) > self.confirmation_timeout
-
-    def _clear_confirmation(self):
-        self.pending_confirmation = None
-        self.confirmation_timestamp = None
 
     def _finalize(self, decision: Decision, start_time: float) -> Decision:
         decision.latency = time.time() - start_time
