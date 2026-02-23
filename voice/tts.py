@@ -30,13 +30,12 @@ class TTS:
                 continue
 
             if self._runtime:
-                self._runtime.set_speaking(True)
+                self._runtime.start_speaking()
 
             try:
-                # Escape quotes properly
                 safe_text = text.replace('"', '')
                 command = (
-                    'Add-Type –AssemblyName System.Speech; '
+                    'Add-Type -AssemblyName System.Speech; '
                     f'(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("{safe_text}")'
                 )
 
@@ -50,11 +49,11 @@ class TTS:
                 print("⚠️ TTS Error:", e)
 
             if self._runtime:
-                self._runtime.set_speaking(False)
+                self._runtime.stop_speaking()
 
     def stop(self):
         if self._runtime:
-            self._runtime.set_speaking(False)
+            self._runtime.stop_speaking()
 
     def shutdown(self):
         self._stop_event.set()

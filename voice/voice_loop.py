@@ -24,10 +24,10 @@ class VoiceLoop:
         self.stt = STT()
         self.tts = TTS(runtime=self.runtime)
 
-        # 🔥 Fusion owns ContextMemory
+        # Fusion owns ContextMemory
         self.fusion = FusionEngine()
 
-        # 🔥 Inject shared memory into router
+        # Inject shared memory into router
         self.router = DecisionRouter(self.fusion.memory)
 
         self.audio_queue = queue.Queue()
@@ -111,10 +111,7 @@ class VoiceLoop:
                         self.buffer.clear()
                         self.silence_frames = 0
 
-                        try:
-                            self.audio_queue.put(audio, block=False)
-                        except Exception:
-                            self.audio_queue.put(audio)
+                        self.audio_queue.put(audio)
 
         except Exception as e:
             print("⚠️ Mic worker crashed:", e)
@@ -144,21 +141,21 @@ class VoiceLoop:
                 if not text:
                     continue
 
-                words = text.split()
-
-                # Allow control words even if short
-                if len(words) <= 1 and text not in ["stop", "exit", "yes", "no"]:
-                    continue
-
-                if self.runtime.is_speaking():
-                    print("DEBUG: runtime still speaking, accepting text to avoid loss")
-
+                text = text.strip()
                 print(f"\n🗣️ Heard: {text}")
 
-                try:
-                    self.text_queue.put(text, block=False)
-                except Exception:
+                # Always allow confirmation words
+                if text.lower() in ["yes", "y", "confirm", "no", "n", "cancel"]:
                     self.text_queue.put(text)
+                    continue
+
+                words = text.split()
+
+                # Skip useless noise
+                if len(words) <= 1 and text.lower() not in ["stop", "exit"]:
+                    continue
+
+                self.text_queue.put(text)
 
             except Exception as e:
                 print("⚠️ STT worker crashed:", e)
@@ -182,29 +179,25 @@ class VoiceLoop:
                 # ---------------------------------------------
                 # CONFIRMATION HANDLING
                 # ---------------------------------------------
-                if self.runtime.awaiting_confirmation:
+                if self.runtime.is_awaiting_confirmation():
+
                     print("DEBUG: awaiting confirmation, got:", text)
 
                     if text in ["yes", "y", "confirm"]:
+
                         print("🔒 Confirmation received: executing pending action")
 
                         pending = self.runtime.pending_intent
                         self._execute_confirmed(pending)
 
                         self.runtime.clear_confirmation()
-
-                        wait_start = time.time()
-                        while self.runtime.is_speaking() and (time.time() - wait_start) < 5.0:
-                            time.sleep(0.05)
-
-                        time.sleep(0.15)
                         continue
 
                     if text in ["no", "n", "cancel"]:
                         print("🔐 Confirmation declined: cancelling action")
+                        print("🤖 Assistant: Action cancelled.")
                         self.tts.speak("Action cancelled.")
                         self.runtime.clear_confirmation()
-                        time.sleep(0.15)
                         continue
 
                     print("DEBUG: still awaiting confirmation; ignoring input")
@@ -213,8 +206,9 @@ class VoiceLoop:
                 # ---------------------------------------------
                 # SYSTEM COMMANDS
                 # ---------------------------------------------
-                if "exit assistant" in text or text in ["exit", "quit"]:
+                if "exit" in text or "quit" in text:
                     print("🛑 Assistant shutting down...")
+                    print("🤖 Assistant: Shutting down assistant.")
                     self.tts.speak("Shutting down assistant.")
                     self.runtime.stop()
                     return
@@ -229,21 +223,12 @@ class VoiceLoop:
                     self.tts.speak("You're welcome.")
                     continue
 
-                if text in ["okay", "ok"]:
-                    continue
-
                 if text in ["stop", "cancel", "abort"]:
                     print("🛑 Interrupting speech...")
                     self.tts.stop()
                     continue
 
                 self._handle_intent(text)
-
-                wait_start = time.time()
-                while self.runtime.is_speaking() and (time.time() - wait_start) < 5.0:
-                    time.sleep(0.05)
-
-                time.sleep(0.08)
 
             except Exception as e:
                 print("⚠️ Intent worker crashed:", e)
@@ -263,10 +248,16 @@ class VoiceLoop:
         print(f"📊 Decision Status: {status}")
 
         if status == "BLOCKED":
+
+    # Ignore low confidence noise silently
+            if message == "Low confidence input":
+                print("… Ignored low confidence input")
+                return
+
             print(f"🚫 {message}")
             self.tts.speak(message or "Action blocked.")
             return
-
+        
         if status == "NEEDS_CONFIRMATION":
             print(f"🔐 {message}")
             self.runtime.set_confirmation(decision_dict)
@@ -275,7 +266,9 @@ class VoiceLoop:
 
         if status == "APPROVED":
 
+            self.runtime.start_execution()
             response = self.router.route(decision_dict)
+            self.runtime.finish_execution()
 
             if response and hasattr(response, "spoken_message"):
                 print(f"🤖 Assistant: {response.spoken_message}")
@@ -292,16 +285,17 @@ class VoiceLoop:
 
         try:
             if not decision_dict:
-                self.tts.speak("No pending action to execute.")
+                print("🤖 Assistant: No pending action.")
+                self.tts.speak("No pending action.")
                 return
 
             confirmed_decision = decision_dict.copy()
             confirmed_decision["status"] = "APPROVED"
+            confirmed_decision["confirmed"] = True
 
-            confirmed_decision.pop("requires_confirmation", None)
-            confirmed_decision.pop("confirmation_message", None)
-
+            self.runtime.start_execution()
             response = self.router.route(confirmed_decision)
+            self.runtime.finish_execution()
 
             if response and hasattr(response, "spoken_message"):
                 print(f"🤖 Assistant: {response.spoken_message}")

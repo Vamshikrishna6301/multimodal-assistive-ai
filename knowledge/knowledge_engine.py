@@ -6,12 +6,11 @@ from core.response_model import UnifiedResponse
 
 class KnowledgeEngine:
     """
-    Final Optimized Free Knowledge Engine
-    - Wikipedia based
-    - Context aware
-    - Garbage resistant
-    - AI-term boosted
-    - Disambiguation filtered
+    Production Wikipedia Knowledge Engine
+    - Clean factual output
+    - No conversational filler
+    - Disambiguation resistant
+    - Deterministic behavior
     """
 
     WIKI_OPENSEARCH_URL = "https://en.wikipedia.org/w/api.php"
@@ -48,16 +47,14 @@ class KnowledgeEngine:
 
             return UnifiedResponse.success_response(
                 category="knowledge",
-                spoken_message=f"{self._shorten(summary)} Would you like more details?"
+                spoken_message=self._shorten(summary)
             )
 
-        except Exception as e:
-            print("DEBUG ERROR:", str(e))
+        except Exception:
             return UnifiedResponse.error_response(
                 category="knowledge",
                 spoken_message="I am unable to answer that right now.",
-                error_code="KNOWLEDGE_ERROR",
-                technical_message=str(e)
+                error_code="KNOWLEDGE_ERROR"
             )
 
     # ------------------------------------------------
@@ -107,36 +104,16 @@ class KnowledgeEngine:
         return query
 
     # ------------------------------------------------
-    # CONTEXT BOOSTING
-    # ------------------------------------------------
-
-    def _boost_context(self, query):
-
-        ai_keywords = [
-            "ai",
-            "artificial intelligence",
-            "machine learning",
-            "deep learning",
-            "neural network",
-        ]
-
-        if any(keyword in query for keyword in ai_keywords):
-            query += " artificial intelligence machine learning neural network"
-
-        return query
-
-    # ------------------------------------------------
     # GET BEST SUMMARY
     # ------------------------------------------------
 
     def _get_best_summary(self, query):
 
         normalized_query = self._normalize_query(query)
-        boosted_query = self._boost_context(normalized_query)
 
         params = {
             "action": "opensearch",
-            "search": boosted_query,
+            "search": normalized_query,
             "limit": 5,
             "namespace": 0,
             "format": "json"
@@ -159,44 +136,38 @@ class KnowledgeEngine:
 
         titles = data[1]
 
-        # Try up to 5 candidates
         for title in titles:
 
-            encoded_title = urllib.parse.quote(title)
+            # Prefer exact match if available
+            if title.lower() == normalized_query.lower():
+                chosen_title = title
+                break
+        else:
+            chosen_title = titles[0]
 
-            summary_response = requests.get(
-                self.WIKI_SUMMARY_URL + encoded_title,
-                headers=self.HEADERS,
-                timeout=10
-            )
+        encoded_title = urllib.parse.quote(chosen_title)
 
-            if summary_response.status_code != 200:
-                continue
+        summary_response = requests.get(
+            self.WIKI_SUMMARY_URL + encoded_title,
+            headers=self.HEADERS,
+            timeout=10
+        )
 
-            summary_data = summary_response.json()
-            extract = summary_data.get("extract")
+        if summary_response.status_code != 200:
+            return None
 
-            if not extract:
-                continue
+        summary_data = summary_response.json()
+        extract = summary_data.get("extract")
 
-            lower_extract = extract.lower()
+        if not extract:
+            return None
 
-            # Avoid disambiguation pages
-            if "may refer to" in lower_extract:
-                continue
+        lower_extract = extract.lower()
 
-            # Avoid film bias when AI context exists
-            if "ai" in normalized_query and (
-                "film" in lower_extract or
-                "movie" in lower_extract
-            ):
-                continue
+        if "may refer to" in lower_extract:
+            return None
 
-            # Prefer proper definition sentences
-            if " is " in extract or " was " in extract:
-                return extract
-
-        return None
+        return extract
 
     # ------------------------------------------------
     # SHORTEN FOR VOICE
@@ -204,14 +175,16 @@ class KnowledgeEngine:
 
     def _shorten(self, text):
 
-        sentences = re.split(r'(?<=\.)\s+', text)
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
 
         if len(sentences) > 2:
-            trimmed = " ".join(sentences[:2])
+            text = " ".join(sentences[:2])
         else:
-            trimmed = text
+            text = sentences[0]
 
-        if not trimmed.endswith("."):
-            trimmed += "."
+        text = text.strip()
 
-        return trimmed
+        if not text.endswith("."):
+            text += "."
+
+        return text

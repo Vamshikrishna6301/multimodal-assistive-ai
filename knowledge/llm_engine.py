@@ -1,12 +1,13 @@
 import requests
-import json
+import re
 from core.response_model import UnifiedResponse
 
 
 class LLMEngine:
     """
-    Fast Local LLM Engine (TinyLlama Optimized)
-    Used ONLY for reasoning questions.
+    Production LLM Engine (TinyLlama via Ollama)
+    Used for reasoning and complex queries only.
+    Strictly formatted, no assistant fluff.
     """
 
     OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -32,10 +33,11 @@ class LLMEngine:
                     "prompt": self._build_prompt(query),
                     "stream": False,
                     "options": {
-                        "num_predict": 60,
+                        "num_predict": 80,
                         "temperature": 0.2,
                         "num_ctx": 512,
-                        "num_thread": 8
+                        "num_thread": 8,
+                        "top_p": 0.9
                     }
                 },
                 timeout=self.TIMEOUT
@@ -49,11 +51,13 @@ class LLMEngine:
                 )
 
             data = response.json()
-            answer = data.get("response", "").strip()
+            raw_answer = data.get("response", "").strip()
+
+            cleaned = self._clean_response(raw_answer)
 
             return UnifiedResponse.success_response(
                 category="knowledge",
-                spoken_message=self._shorten(answer)
+                spoken_message=cleaned
             )
 
         except Exception:
@@ -63,16 +67,57 @@ class LLMEngine:
                 error_code="LLM_EXCEPTION"
             )
 
+    # -----------------------------------------------------
+
     def _build_prompt(self, query: str):
+
         return f"""
-Answer briefly in 2 short sentences maximum.
+You are a concise factual assistant.
+
+Answer directly.
+Do not say:
+- "Sure"
+- "Here is"
+- "Here’s"
+- "In this case"
+- "The answer is"
+- Any conversational filler
+
+Maximum 2 short sentences.
 No paragraphs.
+No bullet points.
+
 Question:
 {query}
 """
 
-    def _shorten(self, text: str):
-        sentences = text.split(". ")
+    # -----------------------------------------------------
+
+    def _clean_response(self, text: str) -> str:
+
+        if not text:
+            return "I could not generate an answer."
+
+        # Remove common assistant fluff
+        fluff_patterns = [
+            r"^sure[,!\s]*",
+            r"^here( is|'s)[,!\s]*",
+            r"^in this case[,!\s]*",
+            r"^the answer is[,:\s]*",
+        ]
+
+        text = text.strip()
+
+        for pattern in fluff_patterns:
+            text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+
+        # Remove extra whitespace
+        text = re.sub(r"\s+", " ", text)
+
+        # Hard limit to 2 sentences
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+
         if len(sentences) > 2:
-            return ". ".join(sentences[:2])
-        return text
+            text = " ".join(sentences[:2])
+
+        return text.strip()

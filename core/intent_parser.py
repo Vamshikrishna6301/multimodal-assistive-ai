@@ -43,6 +43,15 @@ class IntentParser:
             "exit dictation"
         ]
 
+        # Small talk detection
+        self.small_talk_patterns = [
+            r"\bhello\b",
+            r"\bhi\b",
+            r"\bbye\b",
+            r"\bthanks?\b",
+            r"\bthank you\b"
+        ]
+
         self.filler_words = {
             "the", "a", "an", "please", "for", "to",
             "about", "can", "you", "could", "would",
@@ -59,12 +68,23 @@ class IntentParser:
 
         text = text.replace("shut down", "shutdown")
 
-        # Dictation override
         if current_mode == Mode.DICTATION:
             return self._create_dictation_intent(original_text, timestamp)
 
-        # 🔥 Time detection (before general question)
-        import re
+        # Small talk
+        for pattern in self.small_talk_patterns:
+            if re.search(pattern, text):
+                return Intent(
+                    intent_type=IntentType.UNKNOWN,
+                    text=original_text,
+                    action="SMALL_TALK",
+                    confidence=0.7,
+                    confidence_source="small_talk",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+        # Time detection
         if re.search(r"\btime\b", text):
             return Intent(
                 intent_type=IntentType.QUESTION,
@@ -86,7 +106,12 @@ class IntentParser:
             if pattern in text:
                 return self._create_control_intent(original_text, timestamp)
 
-        # Command detection
+        # Multi-command detection (clean split)
+        for keyword in self.command_keywords:
+            if text.count(keyword) > 1:
+                # Only handle first command here — rest will be processed later
+                break
+
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:

@@ -1,24 +1,83 @@
-🌍 Project Vision
+Project Vision
 
-A safety-first multimodal assistive AI platform designed to empower individuals with physical and motor disabilities by enabling:
+This project is an AI-powered multimodal personal assistant tailored for differently-abled individuals, including:
 
-🎤 Hands-free system control
+Visually impaired users
 
-🧠 Context-aware decision making
+Motor-disabled users
 
-🔒 Risk-controlled execution
+Speech-impaired users
 
-🤝 Multimodal interaction (Voice → Gesture → Vision → Emotion)
+Users with limited mobility or coordination
 
-⚙ Deterministic automation with confirmation safeguards
+Users requiring adaptive interaction models
 
-This system bridges the gap between human intent and digital control in real-world environments.
+The system enables natural, intuitive, and safe interaction with both digital and physical environments using:
 
-📂 Complete Project Structure
-KRISHNA/
+🎤 Voice input and output
+
+✋ Gesture recognition
+
+👁 Vision-based perception
+
+😊 Emotion awareness
+
+🧠 Context-aware reasoning
+
+🎯 Core Objective
+
+To bridge the gap between human intent and machine execution by building a deterministic, safety-aware, multimodal assistive intelligence system that:
+
+Reduces dependency on traditional input devices (keyboard, mouse)
+
+Provides accessible computing interfaces
+
+Ensures safe automation through confirmation safeguards
+
+Maintains contextual awareness across interactions
+
+Supports adaptive interaction based on user capability
+
+🔐 Foundational Design Principles
+
+The system is built on the following non-negotiable guarantees:
+
+Deterministic decision logic
+
+Explicit confirmation for high-risk actions
+
+Single-action safe execution model
+
+Context retention for multi-step interaction
+
+Accessibility-first design
+
+Safety over speed
+
+Structured audit logging for transparency
+
+🏗 High-Level System Architecture
+Voice / Gesture / Vision / Emotion Inputs
+                  ↓
+           Intent Parsing Layer
+                  ↓
+           Context Memory
+                  ↓
+           Safety Evaluation
+                  ↓
+           Fusion Engine
+                  ↓
+           Decision Routing
+                  ↓
+           Execution Engine
+                  ↓
+           Adaptive User Feedback
+
+
+
+           project_root/
 │
 ├── core/                          # Phase 1 — Intent & Safety Core
-│   ├── __init__.py
 │   ├── context_memory.py
 │   ├── fusion_engine.py
 │   ├── intent_parser.py
@@ -26,14 +85,15 @@ KRISHNA/
 │   ├── mode_manager.py
 │   ├── safety_engine.py
 │   ├── safety_rules.py
-│   └── response_model.py          # UnifiedResponse
+│   └── response_model.py
 │
 ├── router/                        # Phase 3 — Decision Routing
 │   └── decision_router.py
 │
 ├── execution/                     # Phase 3.1 — Execution Engine
-│   ├── execution_engine.py
+│   ├── executor.py
 │   ├── dispatcher.py
+│   ├── execution_logger.py
 │   └── adapters/
 │       ├── windows_app.py
 │       ├── windows_browser.py
@@ -45,10 +105,10 @@ KRISHNA/
 │   └── utility_engine.py
 │
 ├── knowledge/                     # Phase 3.3 — Hybrid Knowledge
-│   ├── knowledge_engine.py        # Wikipedia
-│   └── llm_engine.py              # TinyLlama (Ollama)
+│   ├── knowledge_engine.py
+│   └── llm_engine.py
 │
-├── voice/                         # Phase 2 + Phase 3.5 — Runtime
+├── voice/                         # Phase 2 — Real-Time Runtime
 │   ├── assistant_runtime.py
 │   ├── mic_stream.py
 │   ├── vad.py
@@ -56,156 +116,83 @@ KRISHNA/
 │   ├── tts.py
 │   └── voice_loop.py
 │
-├── config.py
-├── main.py
-├── requirements.txt
-├── README.md
-│
-├── tests/                         # Consolidated tests
+├── tests/
 │   ├── test_context.py
 │   ├── test_parser.py
 │   ├── test_safety.py
 │   ├── test_execution.py
 │   └── test_voice_pipeline.py
 │
-└── demos/
-    ├── demo_phase2.py
-    └── demo_full_pipeline.py
-
-🏗 System Architecture
-Voice / Gesture / Vision / Emotion
-              ↓
-        Intent Parser
-              ↓
-        Context Memory
-              ↓
-        Safety Engine
-              ↓
-        Fusion Engine
-              ↓
-        Execution Engine
-              ↓
-         User Feedback
-Design Guarantees
-
-Deterministic logic
-
-Confirmation enforcement
-
-Risk escalation handling
-
-Single safe action execution
-
-Real-time responsiveness
-
-Accessibility-first design
+├── demos/
+│   ├── demo_phase2.py
+│   └── demo_full_pipeline.py
+│
+├── config.py
+├── main.py
+├── requirements.txt
+└── README.md
 
 🟢 PHASE 1 — Core Intent & Safety Engine
 
 Status: ✅ Complete
 
-🎯 Goal
+Goal
 
-Build a deterministic, safety-aware decision engine.
+Create a deterministic, risk-aware decision engine capable of safely interpreting user intent.
 
-🔹 Components
-Intent Schema
+Key Features
 
-Structured Intent dataclass
+Structured Intent modeling (confidence, risk level, confirmation flags)
 
-Risk levels (0–9)
+Flexible natural language parsing
 
-Confirmation flags
+Context memory for reference resolution
 
-Entities & parameters
+Mode-based interaction control
 
-Session tracking
+Hard blocking for unsafe operations
 
-Intent Parser
+Latency tracking
 
-Flexible keyword detection (anywhere in sentence)
+Deterministic approval flow
 
-Multi-word normalization ("shut down" → "shutdown")
+Technologies Used
 
-Filler word removal
+Python 3.x
 
-Target extraction
+Dataclasses
 
-Structured parameter mapping
+Threading
 
-Supports:
+Regular Expressions
 
-Commands
+Structured JSON logging
 
-Questions
+Test Coverage
 
-Control instructions
+Command recognition accuracy
 
-Dictation mode
-
-Unknown fallback
-
-Mode Manager (Finite State Machine)
-
-Modes:
-
-LISTENING
-
-COMMAND
-
-DICTATION
-
-QUESTION
-
-DISABLED
-
-Safety Engine
-
-Risk scoring
-
-Dangerous pattern escalation ("delete all")
+Risk escalation handling
 
 Confirmation enforcement
 
-Hard blocking for extreme risk
+Context resolution (“close it”)
 
-Context Memory
+Mode switching validation
 
-Multi-step linking
+Unknown input blocking
 
-Confirmation retention
-
-Session awareness
-
-Fusion Engine
-
-Combines parsing + safety + context
-
-Handles confirmation state
-
-Generates structured decision objects
-
-Tracks latency
-
-🧪 Phase 1 Testing
-Test Type	Status
-Command detection	✅
-Risk escalation	✅
-Confirmation loop	✅
-Cancel flow	✅
-Hard blocking	✅
-Mode transitions	✅text
-🎤 PHASE 2 — Real-Time Voice Integration
+🎤 PHASE 2 — Real-Time Voice Runtime
 
 Status: ✅ Complete
 
-🎯 Goal
+Goal
 
-Transform decision engine into real-time assistive voice system.
+Enable hands-free operation through robust, real-time speech processing.
 
-🔹 Technologies Used
+Technologies
 
-faster-whisper (GPU accelerated STT)
+Faster-Whisper (GPU STT)
 
 PyTorch CUDA
 
@@ -213,248 +200,177 @@ WebRTC VAD
 
 SoundDevice
 
-PyTTSx3
-
 NumPy
 
-Threading
+Offline TTS (PowerShell / pyttsx3)
 
-🔹 Components
-Microphone Stream
+Multi-threaded runtime architecture
 
-16kHz fixed rate
+Capabilities
 
-30ms frames
+Real-time microphone streaming (16kHz)
 
-Queue buffering
-
-VAD compatible
-
-Voice Activity Detection (WebRTC)
-
-Balanced aggressiveness tuning
-
-Silence detection
-
-Minimum speech duration threshold
-
-Noise robustness
-
-Speech-to-Text
-
-GPU acceleration
-
-CPU fallback
-
-Beam search optimization
-
-Short audio rejection
-
-Text-to-Speech
-
-Non-blocking
-
-Thread-safe
-
-Offline capable
-
-Real-Time Runtime
-
-Speech segmentation
-
-Silence-based stop logic
+Silence-based segmentation
 
 Noise filtering
 
+Echo mitigation
+
+Non-blocking TTS
+
 Confirmation voice loop
 
-🧪 Phase 2 Testing
-Scenario	Result
-Silence rejection	✅
-Background noise filtering	✅
-Natural language flexibility	✅
-Confirmation handling	✅
-Cancellation handling	✅
-Latency stability	✅
-🟢 PHASE 3 — Execution Engine
+Runtime state management
+
+Accessibility Impact
+
+Enables blind and low-mobility users to operate systems without physical input devices.
+
+Allows hands-free navigation and application control.
+
+🟡 PHASE 3 — Execution & Knowledge Integration
 
 Status: 🟡 Execution Complete | Runtime Hardening Ongoing
 
-🎯 Goal
+Goal
 
-Safely connect approved intents to real OS actions with confirmation, safety enforcement, and structured audit logging.
+Safely connect approved intents to real-world system actions.
 
-✅ Completed
-1️⃣ Approved-Only Execution
+3.1 Execution Engine
+Features
 
-ExecutionEngine runs only:
+Approved-only execution
 
-APPROVED intents
-Rejects:
+Confirmation-required enforcement
 
-BLOCKED
+OS abstraction via adapter layer
 
-NEEDS_CONFIRMATION
+App stack tracking
 
-UNKNOWN
+Safe shutdown & restart controls
 
-2️⃣ Confirmation Enforcement
+Structured execution logging
 
-High-risk actions require explicit “yes”:
+Logging System
 
-close app
+Each action logs:
 
-delete file
+Timestamp
 
-shutdown
+Action
 
-restart
+Target
 
-Runtime handles confirmation lifecycle correctly.
+Risk level
 
-3️⃣ Safety Locks
+Confirmation state
 
-Prevents:
+Success / Failure
 
-Dangerous paths (e.g., C:\)
+Error code
 
-Empty targets
+Spoken response
 
-Unsupported commands
+Audit-ready.
 
-Low-confidence unknown inputs
+3.2 Utility Engine
 
-4️⃣ OS Abstraction
+Handles:
 
-Clean architecture:
+Mathematical calculations
 
-ExecutionEngine
-   ↓
-Dispatcher
-   ↓
-Windows Adapters
+System time queries
 
-Execution layer contains no OS-specific code.
+Deterministic lightweight queries
 
-5️⃣ Structured Audit Logging ✅
+3.3 Hybrid Knowledge Engine
 
-Implemented ExecutionLogger.
+Combines:
 
-Logs:
+Wikipedia API (fast factual queries)
 
-timestamp
+Local LLM (TinyLlama via Ollama) for reasoning
 
-action
+Features
 
-target
+Clean output formatting
 
-success/failure
+Disambiguation filtering
 
-error_code
+Factual summarization (max 2 sentences)
 
-Stored in:
+LLM prompt hardening
 
-execution_logs.json
+No conversational filler
 
-Audit system complete.
+Offline capability (LLM)
 
-6️⃣ Context + App Stack
-
-Implemented:
-
-close it
-
-go back
-
-switch app
-
-Uses app stack instead of single last_app.
-
-Context updates only after successful execution.
-
-🟡 Runtime Stability (Remaining)
-
-Issue:
-Assistant may transcribe its own speech (echo loop).
-
-Needed:
-
-Drop mic audio while speaking
-
-Prevent STT during TTS
-
-Stronger VAD
-
-Minimum speech threshold
-
-This is runtime hardening, not execution failure.
-
-🏁 Phase 3 Completion Status
-
-✔ Execution stable
-✔ Confirmation enforced
-✔ Safety enforced
-✔ App stack implemented
-✔ Logging implemented
-✔ Audit layer complete
-🟡 Runtime echo control pending
-🔵 PHASE 4 — Vision Integration
+🔵 PHASE 4 — Vision Integration (Planned)
 
 Status: 🟦 Planned
 
-Features
+Objective
+
+Enable visual perception for blind and visually impaired users.
+
+Planned Capabilities
 
 Screen capture
 
-OCR
+OCR text extraction
 
-Object detection
+Object detection (real-world camera)
 
 Scene narration
 
-Tech
+Environmental awareness
+
+Technologies
 
 OpenCV
 
-Tesseract
+Tesseract OCR
 
 YOLOv8
 
-🟣 PHASE 5 — Advanced Context Engine
+NumPy
 
-Status: 🟣 Planned
+Accessibility Impact
 
-Features
+Describes surroundings
 
-Multi-step memory
+Reads text from screen or environment
 
-Action chaining
+Assists in navigation
+
+🟣 PHASE 5 — Advanced Context Engine (Planned)
+
+Multi-step task chaining
+
+Task continuation memory
 
 Reference resolution graph
 
-Task continuation logic
+Intelligent action linking
 
-🟠 PHASE 6 — Gesture Interaction
-
-Status: 🟠 Planned
-
-Features
+🟠 PHASE 6 — Gesture Interaction (Planned)
 
 MediaPipe Hands
 
-Gesture override
-
-Emergency stop
+Gesture-to-command mapping
 
 Cursor control
 
-🔴 PHASE 7 — Emotion Awareness
+Emergency stop gesture
 
-Status: 🔴 Planned
+Override capability
 
-Features
+Accessibility impact:
+Enables interaction for users unable to speak clearly.
 
-Face emotion detection
+🔴 PHASE 7 — Emotion Awareness (Planned)
+
+Facial emotion detection
 
 Voice stress analysis
 
@@ -462,11 +378,12 @@ Adaptive response tone
 
 Confirmation sensitivity adjustment
 
-🟡 PHASE 8 — Multimodal Fusion Core
+Accessibility impact:
+Improves interaction comfort and reduces cognitive load.
 
-Status: 🟡 Critical Future Phase
+🟡 PHASE 8 — Multimodal Fusion Core (Critical Phase)
 
-Goal
+Goal:
 
 Resolve conflicts between:
 
@@ -478,71 +395,59 @@ Vision
 
 Emotion
 
-Guarantee
+Guarantee:
 
-Exactly ONE safe action will execute.
+Exactly one safe action executes at a time.
+
+Implements modality prioritization and confidence arbitration.
 
 🟡 PHASE 9 — Adaptive Learning
 
-Status: 🟡 Planned
-
-Features
-
-User preference modeling
-
 Personalized shortcuts
+
+Usage pattern modeling
 
 Confirmation tolerance adaptation
 
-Usage pattern learning
+Preference memory
 
-🟡 PHASE 10 — UI & Accessibility Profiles
-
-Status: 🟡 Planned
-
-Features
+🟡 PHASE 10 — Accessibility Profiles & UI Layer
 
 Voice-only mode
 
 Gesture-only mode
 
-Visual feedback dashboard
-
-High-contrast UI
+High-contrast dashboard
 
 Slow-response mode
 
 Low-motor configuration
 
-🌍 Real-World Impact
+Feedback customization
 
-Designed for:
+🌍 Real-World Applications
 
-Individuals with limited motor control
+Assistive computing for differently-abled individuals
 
-Hands-free computing environments
+Hospital bedside interaction systems
 
-Accessibility-focused systems
+Smart home accessibility
 
-Safety-sensitive automation
+Hands-free industrial control
 
-The system prioritizes:
+Safety-critical environments
 
-Safety over speed
+Accessibility research platforms
 
-Determinism over randomness
-
-Confirmation over blind execution
-
-🏁 Current Status Summary
+🏁 Current Development Status
 Phase	Status
 Phase 1 — Core Engine	✅ Complete
 Phase 2 — Voice Runtime	✅ Complete
-Phase 3 — Execution Engine	🚧 In Progress
+Phase 3 — Execution & Knowledge	🟡 Stable
 Phase 4 — Vision	🟦 Planned
 Phase 5 — Advanced Context	🟣 Planned
 Phase 6 — Gesture	🟠 Planned
 Phase 7 — Emotion	🔴 Planned
 Phase 8 — Multimodal Fusion	🟡 Critical
 Phase 9 — Adaptive Learning	🟡 Planned
-Phase 10 — UI & Accessibility	🟡 Planned
+Phase 10 — Accessibility UI	🟡 Planned

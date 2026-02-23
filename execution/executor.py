@@ -4,15 +4,44 @@ from execution.execution_logger import ExecutionLogger
 
 
 class ExecutionEngine:
+    """
+    Production Hardened Execution Layer
+
+    Guarantees:
+    - No execution without APPROVED status
+    - No execution if blocked by safety
+    - Dangerous execution allowed ONLY if confirmed=True
+    - Safe against malformed decision input
+    """
 
     def __init__(self, context_memory):
         self.dispatcher = Dispatcher()
         self.logger = ExecutionLogger()
         self.context_memory = context_memory
 
+    # =====================================================
+    # MAIN EXECUTION ENTRY
+    # =====================================================
+
     def execute(self, decision: dict) -> UnifiedResponse:
 
         try:
+            # ------------------------------------------------
+            # 1️⃣ Handle malformed input safely
+            # ------------------------------------------------
+            if not isinstance(decision, dict):
+                safe_decision = {}
+                response = UnifiedResponse.error_response(
+                    category="execution",
+                    spoken_message="Invalid execution request.",
+                    error_code="INVALID_DECISION"
+                )
+                self.logger.log(safe_decision, response)
+                return response
+
+            # ------------------------------------------------
+            # 2️⃣ Must be APPROVED
+            # ------------------------------------------------
             if decision.get("status") != "APPROVED":
                 response = UnifiedResponse.error_response(
                     category="execution",
@@ -22,6 +51,51 @@ class ExecutionEngine:
                 self.logger.log(decision, response)
                 return response
 
+            # ------------------------------------------------
+            # 3️⃣ Block if safety flagged
+            # ------------------------------------------------
+            if decision.get("blocked_reason"):
+                response = UnifiedResponse.error_response(
+                    category="execution",
+                    spoken_message="Execution blocked by safety system.",
+                    error_code="BLOCKED_BY_SAFETY"
+                )
+                self.logger.log(decision, response)
+                return response
+
+            # ------------------------------------------------
+            # 4️⃣ Validate action
+            # ------------------------------------------------
+            action = decision.get("action")
+            if not action:
+                response = UnifiedResponse.error_response(
+                    category="execution",
+                    spoken_message="No executable action found.",
+                    error_code="MISSING_ACTION"
+                )
+                self.logger.log(decision, response)
+                return response
+
+            # ------------------------------------------------
+            # 5️⃣ Risk & Confirmation Revalidation
+            # ------------------------------------------------
+            risk_level = decision.get("risk_level", 0)
+            requires_confirmation = decision.get("requires_confirmation", False)
+            confirmed = decision.get("confirmed", False)
+
+            # 🔥 Allow dangerous action ONLY if confirmed=True
+            if (requires_confirmation or risk_level >= 7) and not confirmed:
+                response = UnifiedResponse.error_response(
+                    category="execution",
+                    spoken_message="Execution requires confirmation.",
+                    error_code="CONFIRMATION_REQUIRED"
+                )
+                self.logger.log(decision, response)
+                return response
+
+            # ------------------------------------------------
+            # 6️⃣ SAFE TO EXECUTE
+            # ------------------------------------------------
             response = self.dispatcher.dispatch(decision)
 
             if response.success:
@@ -31,14 +105,21 @@ class ExecutionEngine:
             return response
 
         except Exception as e:
+            safe_decision = decision if isinstance(decision, dict) else {}
+
             response = UnifiedResponse.error_response(
                 category="execution",
                 spoken_message="An internal execution error occurred.",
                 error_code="EXECUTION_FAILURE",
                 technical_message=str(e)
             )
-            self.logger.log(decision, response)
+
+            self.logger.log(safe_decision, response)
             return response
+
+    # =====================================================
+    # CONTEXT UPDATE
+    # =====================================================
 
     def _update_context(self, decision: dict):
 
@@ -48,9 +129,9 @@ class ExecutionEngine:
         if action == "OPEN_APP" and target:
             self.context_memory.last_app = target
 
-        if action == "SYSTEM_CONTROL" and target:
+        elif action == "SYSTEM_CONTROL" and target:
             if self.context_memory.last_app == target:
                 self.context_memory.last_app = None
 
-        if action == "FILE_OPERATION" and target:
+        elif action == "FILE_OPERATION" and target:
             self.context_memory.last_file = target
