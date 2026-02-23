@@ -451,9 +451,7 @@ Avoid acoustic feedback loop.
 
 Even after runtime fix, Phase 3 still has:
 
-❌ Close Notepad Not Working
 
-Cause: WindowsSystemAdapter.handle() incomplete.
 
 ❌ Unsupported system control command
 
