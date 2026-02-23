@@ -1,123 +1,230 @@
 import collections
 import time
+import queue
+import threading
+
 from voice.mic_stream import MicrophoneStream
 from voice.vad import VAD
 from voice.stt import STT
 from voice.tts import TTS
-from voice.wakeword import is_wake_word
-from config import MAX_SILENCE_FRAMES, WAKE_WORD
-from core import IntentParser, ModeManager, SafetyRules, Mode
-from execution.executor import Executor
+from voice.assistant_runtime import AssistantRuntime
+
+from config import MAX_SILENCE_FRAMES
+from core.fusion_engine import FusionEngine
+from router.decision_router import DecisionRouter
 
 
 class VoiceLoop:
-    def __init__(self, allow_side_effects: bool = False):
+
+    def __init__(self, runtime: AssistantRuntime = None):
+
+        self.runtime = runtime or AssistantRuntime()
+
         self.vad = VAD()
         self.stt = STT()
-        self.tts = TTS()
-        
-        # Phase 2: Intent & Mode Engine integration
-        self.intent_parser = IntentParser()
-        self.mode_manager = ModeManager()
-        self.safety_rules = SafetyRules()
-        # Phase 3: Executor (dry-run by default unless enabled)
-        import os
-        env_enable = os.environ.get("ENABLE_SIDE_EFFECTS", "false").lower() in ("1", "true", "yes")
-        self.executor = Executor(allow_side_effects=(allow_side_effects or env_enable))
-        
+        self.tts = TTS(runtime=self.runtime)
+
+        self.fusion = FusionEngine()
+        self.router = DecisionRouter()
+
+        self.audio_queue = queue.Queue()
+        self.text_queue = queue.Queue()
+
         self.buffer = collections.deque()
         self.silence_frames = 0
-        self.last_intent = None
 
-    def run(self):
-        print("\n" + "="*60)
-        print("🎙️  Phase 1 + 2 INTEGRATED: Voice Loop with Intent Engine")
-        print("="*60)
+        self._threads = []
 
-        with MicrophoneStream() as mic:
-            while True:
-                frame = mic.read()
+    # =====================================================
+    # START PRODUCTION
+    # =====================================================
 
-                if self.vad.is_speech(frame):
-                    self.buffer.append(frame)
-                    self.silence_frames = 0
-                else:
-                    self.silence_frames += 1
+    def start_production(self):
 
-                if self.silence_frames > MAX_SILENCE_FRAMES and self.buffer:
-                    audio = b"".join(self.buffer)
-                    self.buffer.clear()
+        print("\n" + "=" * 60)
+        print("🚀 PRODUCTION VOICE ASSISTANT STARTED")
+        print("=" * 60)
 
-                    text = self.stt.transcribe(audio)
+        self._start_threads()
 
-                    # 🔥 Ignore tiny garbage transcriptions
-                    if not text or len(text) < 3:
-                        continue
+        try:
+            while self.runtime.running:
+                time.sleep(1)
 
-                    print(f"\n🗣️  Heard: {text}")
-                    
-                    # Phase 2: Intent parsing and processing
-                    if is_wake_word(text, WAKE_WORD):
-                        self.tts.speak("Yes. I am listening.")
-                        self._process_voice_input()
+        except KeyboardInterrupt:
+            print("\n🛑 Keyboard interrupt received.")
+            self.runtime.stop()
+
+        print("🧹 Cleaning up threads...")
+        for t in self._threads:
+            t.join(timeout=2)
+
+        print("✅ Assistant terminated cleanly.")
+
+    # =====================================================
+    # THREAD MANAGEMENT
+    # =====================================================
+
+    def _start_threads(self):
+
+        workers = [
+            self._mic_worker,
+            self._stt_worker,
+            self._intent_worker
+        ]
+
+        for worker in workers:
+            t = threading.Thread(target=worker)
+            t.start()
+            self._threads.append(t)
+
+    # =====================================================
+    # MIC WORKER
+    # =====================================================
+
+    def _mic_worker(self):
+
+        try:
+            with MicrophoneStream() as mic:
+
+                MIN_SPEECH_FRAMES = 8  # ~240ms minimum speech
+
+                while self.runtime.running:
+
+                    frame = mic.read()
+
+                    if self.vad.is_speech(frame):
+                        self.buffer.append(frame)
+                        self.silence_frames = 0
                     else:
-                        # Parse intent even without wake word (for learning)
-                        self._handle_intent(text)
+                        self.silence_frames += 1
 
-    def _process_voice_input(self):
-        """
-        Wait for next voice input after wake word
-        Temporary: just listen for next command
-        """
-        print("   📍 Ready for command...")
-        # TODO: In Phase 3, this will wait for actual command execution
+                    if (
+                        self.silence_frames > MAX_SILENCE_FRAMES
+                        and len(self.buffer) > MIN_SPEECH_FRAMES
+                    ):
 
-    def _handle_intent(self, text: str) -> None:
-        """
-        Process text through intent parser, mode manager, and safety rules
-        Industry-standard intent pipeline
-        """
-        current_mode = self.mode_manager.get_mode()
-        
-        # Phase 2 Layer 1: Parse intent
-        intent = self.intent_parser.parse(text, current_mode)
-        self.last_intent = intent
-        
-        print(f"   📊 Intent: {intent.intent_type.name}")
-        print(f"   📈 Confidence: {intent.confidence:.2f} ({intent.confidence_source})")
-        print(f"   ⚠️  Risk Level: {intent.risk_level}/9")
-        
-        # Phase 2 Layer 2: Safety validation
-        allowed, block_reason, requires_confirmation = self.safety_rules.validate(intent)
-        
-        if not allowed:
-            print(f"   ❌ BLOCKED: {block_reason}")
-            self.tts.speak(f"Action blocked: {block_reason}")
+                        audio = b"".join(self.buffer)
+                        self.buffer.clear()
+
+                        self.audio_queue.put(audio)
+
+        except Exception as e:
+            print("⚠️ Mic worker crashed:", e)
+            self.runtime.stop()
+
+    # =====================================================
+    # STT WORKER
+    # =====================================================
+
+    def _stt_worker(self):
+
+        while self.runtime.running:
+
+            try:
+                print("DEBUG: waiting for audio")
+
+                try:
+                    audio = self.audio_queue.get(timeout=1)
+                except queue.Empty:
+                    continue
+
+                print("DEBUG: running transcribe")
+
+                text = self.stt.transcribe(audio, 16000)
+
+                if not text:
+                    continue
+
+                words = text.split()
+
+                if len(words) <= 1 and text not in ["stop", "exit", "yes", "no"]:
+                    continue
+                if self.runtime.is_speaking():
+                    continue
+
+                print(f"\n🗣️ Heard: {text}")
+                self.text_queue.put(text)
+
+            except Exception as e:
+                print("⚠️ STT worker crashed:", e)
+
+    # =====================================================
+    # INTENT WORKER
+    # =====================================================
+
+    def _intent_worker(self):
+
+        while self.runtime.running:
+
+            try:
+                try:
+                    text = self.text_queue.get(timeout=1)
+                except queue.Empty:
+                    continue
+
+                text = text.lower().strip()
+
+                if "exit assistant" in text or text in ["exit", "quit"]:
+                    print("🛑 Assistant shutting down...")
+                    self.tts.speak("Shutting down assistant.")
+                    self.runtime.stop()
+                    return
+
+                if text in ["hello", "hi"]:
+                    print("🤖 Assistant: Hello! How can I help you?")
+                    self.tts.speak("Hello! How can I help you?")
+                    continue
+
+                if text in ["thank you", "thanks"]:
+                    print("🤖 Assistant: You're welcome.")
+                    self.tts.speak("You're welcome.")
+                    continue
+
+                if text in ["okay", "ok"]:
+                    continue
+
+                if text in ["stop", "cancel", "abort"]:
+                    print("🛑 Interrupting speech...")
+                    self.tts.stop()
+                    continue
+
+                self._handle_intent(text)
+
+            except Exception as e:
+                print("⚠️ Intent worker crashed:", e)
+
+    # =====================================================
+    # HANDLE INTENT
+    # =====================================================
+
+    def _handle_intent(self, text: str):
+
+        decision = self.fusion.process_text(text)
+        decision_dict = decision.to_dict()
+
+        status = decision_dict.get("status")
+        message = decision_dict.get("message")
+
+        print(f"📊 Decision Status: {status}")
+
+        if status == "BLOCKED":
+            print(f"🚫 {message}")
+            self.tts.speak(message or "Action blocked.")
             return
-        
-        # Phase 2 Layer 3: Confirmation check
-        if requires_confirmation:
-            print(f"   🔐 Requires confirmation")
-            self.tts.speak("This action requires confirmation. Say yes or no.")
-            # TODO: In Phase 2.1, implement confirmation prompt
-            return
-        
-        # Phase 2 Layer 4: Mode transition
-        if intent.mode and intent.mode != current_mode:
-            success = self.mode_manager.set_mode(intent.mode, f"intent:{intent.action}")
-            if not success:
-                print(f"   ⚠️  Mode transition blocked")
-                return
-        
-        print(f"   ✅ Intent validated. Action: {intent.action}")
-        if intent.target:
-            print(f"   🎯 Target: {intent.target}")
 
-        # Execute with Executor (dry-run unless allow_side_effects=True)
-        result = self.executor.execute(intent)
-        if result.success:
-            print(f"   🟢 Execution: {result.message}")
-            self.tts.speak(result.message)
-        else:
-            print(f"   🔴 Execution blocked/failure: {result.message}")
-            self.tts.speak(result.message)
+        if status == "NEEDS_CONFIRMATION":
+            print(f"🔐 {message}")
+            self.tts.speak(message or "Please confirm.")
+            return
+
+        if status == "APPROVED":
+
+            response = self.router.route(decision_dict)
+
+            if response and hasattr(response, "spoken_message"):
+                print(f"🤖 Assistant: {response.spoken_message}")
+                self.tts.speak(response.spoken_message)
+            else:
+                print("🤖 Assistant: Done.")
+                self.tts.speak("Done.")

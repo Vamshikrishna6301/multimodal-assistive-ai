@@ -8,25 +8,27 @@ class UtilityEngine:
     Production-Level Utility Engine
 
     Supports:
-    - Advanced math expressions
-    - Safe evaluation (restricted environment)
+    - Natural language math
+    - Safe evaluation
+    - Time queries
     """
 
     def __init__(self):
-        # Whitelisted math functions and constants
+
         self.allowed_names = {
             name: getattr(math, name)
             for name in dir(math)
             if not name.startswith("__")
         }
 
-        # Add common aliases
         self.allowed_names.update({
             "pi": math.pi,
             "e": math.e,
             "abs": abs,
             "round": round
         })
+
+    # ------------------------------------------------
 
     def handle(self, decision: dict) -> UnifiedResponse:
 
@@ -45,9 +47,9 @@ class UtilityEngine:
             error_code="UTILITY_UNSUPPORTED"
         )
 
-    # -----------------------------
-    # Advanced Calculator
-    # -----------------------------
+    # ------------------------------------------------
+    # NATURAL LANGUAGE CALCULATOR
+    # ------------------------------------------------
 
     def calculate(self, expression: str) -> UnifiedResponse:
 
@@ -59,10 +61,21 @@ class UtilityEngine:
             )
 
         try:
-            # Replace caret with power
+            expression = expression.lower()
+
+            # Replace natural language math
+            expression = expression.replace("times", "*")
+            expression = expression.replace("into", "*")
+            expression = expression.replace("multiplied by", "*")
+            expression = expression.replace("divided by", "/")
+            expression = expression.replace("plus", "+")
+            expression = expression.replace("minus", "-")
             expression = expression.replace("^", "**")
 
-            # Security check: only allow safe characters
+            # Remove extra spaces
+            expression = re.sub(r"\s+", " ", expression)
+
+            # Security validation
             if not re.match(r'^[0-9\.\+\-\*\/\%\(\)\s,a-zA-Z_]*$', expression):
                 return UnifiedResponse.error_response(
                     category="utility",
@@ -88,11 +101,12 @@ class UtilityEngine:
                 error_code="CALCULATION_ERROR"
             )
 
-    # -----------------------------
-    # Get Current Time
-    # -----------------------------
+    # ------------------------------------------------
+    # TIME
+    # ------------------------------------------------
 
     def get_time(self):
+
         from datetime import datetime
 
         now = datetime.now().strftime("%I:%M %p")

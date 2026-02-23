@@ -3,12 +3,14 @@ import threading
 
 
 class TTS:
-    """
-    Stable non-blocking TTS
-    """
 
-    def __init__(self):
+    def __init__(self, runtime=None):
         self._lock = threading.Lock()
+        self._engine = pyttsx3.init()
+        self._engine.setProperty("rate", 180)
+        self._engine.setProperty("volume", 1.0)
+        self._runtime = runtime
+        self._speaking = False
 
     def speak(self, text: str):
 
@@ -22,15 +24,25 @@ class TTS:
         ).start()
 
     def _speak(self, text: str):
+
         with self._lock:
-            engine = pyttsx3.init()
-            engine.setProperty("rate", 180)
-            engine.setProperty("volume", 1.0)
+            self._speaking = True
 
-            voices = engine.getProperty("voices")
-            if voices:
-                engine.setProperty("voice", voices[0].id)
+            if self._runtime:
+                self._runtime.set_speaking(True)
 
-            engine.say(text)
-            engine.runAndWait()
-            engine.stop()
+            self._engine.say(text)
+            self._engine.runAndWait()
+
+            self._speaking = False
+
+            if self._runtime:
+                self._runtime.set_speaking(False)
+
+    def stop(self):
+        with self._lock:
+            self._engine.stop()
+            self._speaking = False
+
+            if self._runtime:
+                self._runtime.set_speaking(False)

@@ -1,4 +1,4 @@
-from core.intent_parser import IntentParser
+'''from core.intent_parser import IntentParser
 from core.context_memory import ContextMemory
 
 parser = IntentParser()
@@ -23,3 +23,13 @@ for cmd in commands:
 
 print("\nMemory Snapshot:")
 print(memory.get_memory_snapshot())
+'''
+# mic_debug_test.py
+
+from voice.mic_stream import MicrophoneStream
+
+with MicrophoneStream() as mic:
+    print("Listening...")
+    for i in range(20):
+        frame = mic.read()
+        print("Frame length:", len(frame))

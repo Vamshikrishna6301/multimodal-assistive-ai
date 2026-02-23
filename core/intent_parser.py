@@ -1,15 +1,3 @@
-"""
-Intent Parser - Phase 2 Production Upgrade (Flexible NLP)
-
-Upgraded to:
-- Keyword detection anywhere in sentence
-- Multi-word normalization (shut down → shutdown)
-- Natural speech tolerance
-- Structured parameters
-- Risk scoring
-- Confirmation flagging
-"""
-
 import re
 import time
 from typing import Dict, Optional, Tuple
@@ -26,7 +14,6 @@ class IntentParser:
 
     def __init__(self):
 
-        # Keyword → (IntentType, risk_level)
         self.command_keywords = {
             "open": (IntentType.OPEN_APP, 1),
             "close": (IntentType.SYSTEM_CONTROL, 2),
@@ -37,6 +24,7 @@ class IntentParser:
             "search": (IntentType.SEARCH, 1),
             "type": (IntentType.TYPE_TEXT, 1),
             "write": (IntentType.TYPE_TEXT, 1),
+            "calculate": (IntentType.TYPE_TEXT, 1),
         }
 
         self.question_patterns = [
@@ -62,8 +50,6 @@ class IntentParser:
         }
 
     # =========================================================
-    # MAIN PARSE
-    # =========================================================
 
     def parse(self, text: str, current_mode: Mode = Mode.COMMAND) -> Intent:
 
@@ -71,32 +57,36 @@ class IntentParser:
         original_text = text
         text = self._normalize(text)
 
-        # Normalize common variations
         text = text.replace("shut down", "shutdown")
 
-        # -----------------------------------------------------
         # Dictation override
-        # -----------------------------------------------------
         if current_mode == Mode.DICTATION:
             return self._create_dictation_intent(original_text, timestamp)
 
-        # -----------------------------------------------------
+        # 🔥 Time detection (before general question)
+        import re
+        if re.search(r"\btime\b", text):
+            return Intent(
+                intent_type=IntentType.QUESTION,
+                text=original_text,
+                action="GET_TIME",
+                confidence=0.95,
+                confidence_source="keyword_time",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
         # Question detection
-        # -----------------------------------------------------
         for pattern in self.question_patterns:
             if re.search(pattern, text):
                 return self._create_question_intent(original_text, timestamp)
 
-        # -----------------------------------------------------
         # Control detection
-        # -----------------------------------------------------
         for pattern in self.control_patterns:
             if pattern in text:
                 return self._create_control_intent(original_text, timestamp)
 
-        # -----------------------------------------------------
         # Command detection
-        # -----------------------------------------------------
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:
@@ -109,9 +99,7 @@ class IntentParser:
                 timestamp
             )
 
-        # -----------------------------------------------------
         # Fallback
-        # -----------------------------------------------------
         return Intent(
             intent_type=IntentType.UNKNOWN,
             text=original_text,
@@ -123,34 +111,25 @@ class IntentParser:
         )
 
     # =========================================================
-    # COMMAND DETECTION
-    # =========================================================
 
     def _detect_command(self, text: str) -> Tuple[Optional[IntentType], int, Optional[str]]:
 
         for keyword, (intent_type, risk_level) in self.command_keywords.items():
-
-            # Match keyword anywhere in sentence
             pattern = rf"\b{keyword}\b"
-
             if re.search(pattern, text):
                 return intent_type, risk_level, keyword
 
         return None, 0, None
 
     # =========================================================
-    # TARGET EXTRACTION
-    # =========================================================
 
     def _extract_target(self, text: str, keyword: str) -> Optional[str]:
 
         parts = text.split(keyword, 1)
-
         if len(parts) < 2:
             return None
 
         text_after_keyword = parts[1].strip()
-
         if not text_after_keyword:
             return None
 
@@ -162,11 +141,8 @@ class IntentParser:
         ]
 
         target = " ".join(cleaned_tokens).strip()
-
         return target if target else None
 
-    # =========================================================
-    # INTENT CREATORS
     # =========================================================
 
     def _create_command_intent(
@@ -191,10 +167,16 @@ class IntentParser:
 
         requires_confirmation = risk_level >= 7
 
+        action_name = (
+            "CALCULATE"
+            if original_text.lower().startswith("calculate")
+            else intent_type.name
+        )
+
         return Intent(
             intent_type=intent_type,
             text=original_text,
-            action=intent_type.name,
+            action=action_name,
             target=target,
             parameters=parameters,
             confidence=0.95 if risk_level < 7 else 0.85,
@@ -212,7 +194,8 @@ class IntentParser:
         return Intent(
             intent_type=IntentType.QUESTION,
             text=original_text,
-            action="ANSWER_QUESTION",
+            action="KNOWLEDGE_QUERY",
+            target=original_text,
             confidence=0.9,
             confidence_source="regex",
             mode=Mode.QUESTION,
@@ -249,8 +232,6 @@ class IntentParser:
             timestamp=timestamp
         )
 
-    # =========================================================
-    # NORMALIZATION
     # =========================================================
 
     def _normalize(self, text: str) -> str:

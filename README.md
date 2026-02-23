@@ -16,8 +16,8 @@ This system bridges the gap between human intent and digital control in real-wor
 
 📂 Complete Project Structure
 KRISHNA/
-├── core/
-│   ├── __pycache__/
+│
+├── core/                          # Phase 1 — Intent & Safety Core
 │   ├── __init__.py
 │   ├── context_memory.py
 │   ├── fusion_engine.py
@@ -25,44 +25,52 @@ KRISHNA/
 │   ├── intent_schema.py
 │   ├── mode_manager.py
 │   ├── safety_engine.py
-│   └── safety_rules.py
+│   ├── safety_rules.py
+│   └── response_model.py          # UnifiedResponse
 │
-├── execution/
-│   ├── app_control.py
-│   ├── executor.py
-│   ├── file_ops.py
-│   └── keyboard_mouse.py
+├── router/                        # Phase 3 — Decision Routing
+│   └── decision_router.py
 │
-├── voice/
-│   ├── __pycache__/
+├── execution/                     # Phase 3.1 — Execution Engine
+│   ├── execution_engine.py
+│   ├── dispatcher.py
+│   └── adapters/
+│       ├── windows_app.py
+│       ├── windows_browser.py
+│       ├── windows_keyboard.py
+│       ├── windows_file.py
+│       └── windows_system.py
+│
+├── utility/                       # Phase 3.2 — Utility Engine
+│   └── utility_engine.py
+│
+├── knowledge/                     # Phase 3.3 — Hybrid Knowledge
+│   ├── knowledge_engine.py        # Wikipedia
+│   └── llm_engine.py              # TinyLlama (Ollama)
+│
+├── voice/                         # Phase 2 + Phase 3.5 — Runtime
+│   ├── assistant_runtime.py
 │   ├── mic_stream.py
+│   ├── vad.py
 │   ├── stt.py
 │   ├── tts.py
-│   ├── vad.py
-│   ├── voice_loop.py
-│   └── wakeword.py
+│   └── voice_loop.py
 │
-├── .gitignore
 ├── config.py
-├── demo_full_pipeline.py
-├── demo_phase2.py
-├── direct_record_test.py
-├── intent_parser_reference.py
-├── INTENT_PATTERNS_ANALYSIS.json
 ├── main.py
-├── mic_test.py
-├── raw_stt_stream_test.py
-├── raw_stt_test.py
-├── README.md
 ├── requirements.txt
-├── run_phase2_voice.py
-├── test_context.py
-├── test_parser.py
-├── test_phase2_pipeline.py
-├── test_safety.py
-├── tests_execution.py
-└── tests_phase2.py
-
+├── README.md
+│
+├── tests/                         # Consolidated tests
+│   ├── test_context.py
+│   ├── test_parser.py
+│   ├── test_safety.py
+│   ├── test_execution.py
+│   └── test_voice_pipeline.py
+│
+└── demos/
+    ├── demo_phase2.py
+    └── demo_full_pipeline.py
 
 🏗 System Architecture
 Voice / Gesture / Vision / Emotion
@@ -268,48 +276,222 @@ Natural language flexibility	✅
 Confirmation handling	✅
 Cancellation handling	✅
 Latency stability	✅
-🟡 PHASE 3 — Execution Engine
-
-Status: 🚧 In Progress
-
+🟡 PHASE 3 — Execution Engine (Updated with Current Issues)
+Status: 🚧 In Progress (Runtime Stability Required)
 🎯 Goal
 
-Connect approved decisions to real OS actions.
+Connect approved decisions to real OS actions in a safe, deterministic, production-ready way.
 
-Responsibilities
+🧠 Core Responsibilities
+1️⃣ Execute only APPROVED intents
 
-Execute only APPROVED intents
+ExecutionEngine must refuse:
 
-Respect confirmation requirements
+BLOCKED
 
-Enforce safety locks
+NEEDS_CONFIRMATION
 
-Log execution events
+UNKNOWN
 
-Windows OS abstraction (first target)
+2️⃣ Respect Confirmation Requirements
 
-Planned Functions
+High-risk commands must:
+
+Trigger confirmation in FusionEngine
+
+Only execute after explicit “yes”
+
+Examples:
+
+shutdown
+
+delete file
+
+close app
+
+restart
+
+3️⃣ Enforce Safety Locks
+
+Must prevent:
+
+Dangerous paths (C:, system folders)
+
+Mass delete
+
+Unknown system commands
+
+Empty targets
+
+4️⃣ OS Abstraction Layer
+
+ExecutionEngine → Dispatcher → WindowsAdapters
+
+Adapters must isolate OS-level code.
+
+5️⃣ Logging (Missing)
+
+Phase 3 must log:
+
+Action
+
+Target
+
+Timestamp
+
+Success / Failure
+
+Error message
+
+(Currently not implemented)
+
+🟢 Planned Functions
 open_app(app_name)
 search_browser(query)
 type_text(text)
 close_active_app()
 delete_file(path)  # requires confirmation
-Tech Stack
+shutdown()
+restart()
+🔴 CURRENT CRITICAL PROBLEM (Phase 3 Runtime Blocking)
+Problem: Assistant appears to "get stuck" after first command.
+Observed Behavior:
 
-subprocess
+First command works
 
-os
+Assistant responds
 
-pyautogui
+After that, system either:
 
-Windows API
+Keeps waiting for audio
 
-Required Test Cases
+Transcribes its own speech
+
+Stops detecting real input
+
+Appears frozen
+
+🧠 ROOT CAUSE
+
+This is NOT an execution bug.
+
+This is a runtime acoustic feedback + speech segmentation issue.
+
+Specifically:
+
+Assistant speaks.
+
+Microphone captures speaker output.
+
+VAD detects it as speech.
+
+STT transcribes assistant’s own voice.
+
+This causes:
+
+Fake inputs ("thank you")
+
+Noise chunks
+
+Unexpected intent triggers
+
+After that, real user speech may not be captured properly.
+
+So it looks like:
+
+System stuck after one command
+
+But actually:
+
+System is processing its own TTS output
+🟡 Secondary Runtime Issue
+
+If mic is blocked during speaking and speaking flag does not reset correctly:
+
+Mic stops capturing
+
+No new chunks pushed
+
+System appears frozen
+
+This is a concurrency + state flag issue.
+
+🔴 Why This Is Important For Phase 3
+
+Phase 3 assumes:
+
+Decision → Execution
+
+But runtime instability means:
+
+Noise → False decision → Execution
+
+So before Phase 3 is considered stable:
+
+Runtime must be stabilized.
+
+🛠 Required Runtime Fixes Before Phase 3 Completion
+✅ 1. Drop audio chunks while assistant speaking
+
+(Not pause mic — drop chunks.)
+
+✅ 2. Increase VAD aggressiveness
+
+Level 3 recommended.
+
+✅ 3. Add minimum speech duration threshold
+
+Ignore tiny noise bursts.
+
+✅ 4. Prevent STT from running while speaking
+
+Avoid acoustic feedback loop.
+
+🟡 Execution Engine Maturity Issues
+
+Even after runtime fix, Phase 3 still has:
+
+❌ Close Notepad Not Working
+
+Cause: WindowsSystemAdapter.handle() incomplete.
+
+❌ Unsupported system control command
+
+Cause: Adapter not mapping correct action/target.
+
+❌ No execution logging
+
+Need audit layer.
+
+🧪 Updated Required Test Cases
+Execution Tests
 Command	Expected
 open chrome	Chrome launches
-search transformers	Browser search executes
-type hello	Text typed
-delete file	Confirmed deletion only
+open notepad	Notepad opens
+close notepad	Requires confirmation → closes
+delete test.txt	Requires confirmation → deletes
+shutdown	Requires confirmation → shuts down
+restart	Requires confirmation → restarts
+delete C:\	BLOCKED
+Runtime Stability Tests
+Scenario	Expected
+Speak 2 commands back-to-back	Both recognized
+Assistant speaks	No self-transcription
+Say "stop" while speaking	Speech interrupts
+Silent environment	No fake triggers
+Background fan noise	No false commands
+🟢 True Phase 3 Completion Criteria
+
+Phase 3 is only complete when:
+
+✔ Execution stable
+✔ Confirmation enforced
+✔ Runtime stable
+✔ No echo loop
+✔ No one-command freeze
+✔ No false self-triggering
+✔ OS adapters fully mapped
+✔ Logging implemented
 🔵 PHASE 4 — Vision Integration
 
 Status: 🟦 Planned
