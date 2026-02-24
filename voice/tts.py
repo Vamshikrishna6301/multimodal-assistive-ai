@@ -9,9 +9,13 @@ class TTS:
         self._runtime = runtime
         self._queue = queue.Queue()
         self._stop_event = threading.Event()
+        self._current_process = None
+        self._lock = threading.Lock()
 
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
+
+    # =====================================================
 
     def speak(self, text: str):
 
@@ -19,6 +23,8 @@ class TTS:
             return
 
         self._queue.put(text)
+
+    # =====================================================
 
     def _run_loop(self):
 
@@ -34,27 +40,61 @@ class TTS:
 
             try:
                 safe_text = text.replace('"', '')
+
                 command = (
                     'Add-Type -AssemblyName System.Speech; '
-                    f'(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("{safe_text}")'
+                    f'$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                    f'$speak.Speak("{safe_text}")'
                 )
 
-                subprocess.run(
-                    ["powershell", "-Command", command],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+                # 🔥 Use Popen instead of run
+                with self._lock:
+                    self._current_process = subprocess.Popen(
+                        ["powershell", "-Command", command],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+
+                # Wait for speech to finish
+                self._current_process.wait()
 
             except Exception as e:
                 print("⚠️ TTS Error:", e)
 
-            if self._runtime:
-                self._runtime.stop_speaking()
+            finally:
+                with self._lock:
+                    self._current_process = None
+
+                if self._runtime:
+                    self._runtime.stop_speaking()
+
+    # =====================================================
 
     def stop(self):
+
+        # 🔥 Kill current speech process
+        with self._lock:
+            if self._current_process and self._current_process.poll() is None:
+                try:
+                    self._current_process.terminate()
+                except Exception:
+                    pass
+                self._current_process = None
+
+        # Clear remaining queued speech
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
+
         if self._runtime:
             self._runtime.stop_speaking()
 
+    # =====================================================
+
     def shutdown(self):
+
+        self.stop()  # 🔥 Ensure speech is killed first
         self._stop_event.set()
         self._thread.join(timeout=2)

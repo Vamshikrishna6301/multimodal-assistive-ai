@@ -18,9 +18,9 @@ class VoicePhase2Assistant:
         self.running = True
 
         # Silence control
-        self.silence_threshold = 20        # frames of silence before stop
+        self.silence_threshold = 15        # frames of silence before stop
         self.max_record_seconds = 6        # max recording duration
-        self.min_speech_frames = 8         # minimum speech frames (~240ms)
+        self.min_speech_frames = 4         # minimum speech frames (~240ms)
 
     # =====================================================
 
@@ -92,7 +92,12 @@ class VoicePhase2Assistant:
                     text = text.strip().lower()
 
                     # Ignore very short noise transcripts
-                    if len(text.split()) < 2 and text not in ["yes", "no", "exit"]:
+                    
+
+                    # Ignore obvious noise words only
+                    noise_words = {"uh", "um", "hmm"}
+
+                    if text in noise_words:
                         continue
 
                     print(f"\n🗣 You said: {text}")

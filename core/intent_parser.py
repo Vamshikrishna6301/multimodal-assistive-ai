@@ -43,7 +43,6 @@ class IntentParser:
             "exit dictation"
         ]
 
-        # Small talk detection
         self.small_talk_patterns = [
             r"\bhello\b",
             r"\bhi\b",
@@ -65,13 +64,17 @@ class IntentParser:
         timestamp = time.time()
         original_text = text
         text = self._normalize(text)
-
         text = text.replace("shut down", "shutdown")
 
+        # =====================================================
+        # DICTATION MODE
+        # =====================================================
         if current_mode == Mode.DICTATION:
             return self._create_dictation_intent(original_text, timestamp)
 
-        # Small talk
+        # =====================================================
+        # SMALL TALK
+        # =====================================================
         for pattern in self.small_talk_patterns:
             if re.search(pattern, text):
                 return Intent(
@@ -84,7 +87,85 @@ class IntentParser:
                     timestamp=timestamp
                 )
 
-        # Time detection
+        # =====================================================
+        # STOP CAMERA (HIGH PRIORITY)
+        # =====================================================
+        if "stop camera" in text:
+            return Intent(
+                intent_type=IntentType.CONTROL,
+                text=original_text,
+                action="STOP_CAMERA",
+                confidence=0.95,
+                confidence_source="camera_control",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # =====================================================
+        # START CAMERA (HIGH PRIORITY)
+        # =====================================================
+        if text.strip() == "open camera":
+            return Intent(
+                intent_type=IntentType.CONTROL,
+                text=original_text,
+                action="VISION",
+                target="camera",
+                parameters={"task": "detect_objects"},
+                confidence=0.95,
+                confidence_source="camera_open_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        if "camera" in text or "front" in text:
+
+            if "what is" in text or "see" in text or "detect" in text:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="VISION",
+                    target="camera",
+                    parameters={"task": "detect_objects"},
+                    confidence=0.95,
+                    confidence_source="vision_camera_rule",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+        # =====================================================
+        # SCREEN VISION
+        # =====================================================
+        if "screen" in text:
+
+            if "read" in text or "what is" in text or "whats on" in text:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="VISION",
+                    target="screen",
+                    parameters={"task": "read_text"},
+                    confidence=0.95,
+                    confidence_source="vision_rule",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+            if "look" in text or "see" in text:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="VISION",
+                    target="screen",
+                    parameters={"task": "describe"},
+                    confidence=0.9,
+                    confidence_source="vision_rule",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+        # =====================================================
+        # TIME QUERY
+        # =====================================================
         if re.search(r"\btime\b", text):
             return Intent(
                 intent_type=IntentType.QUESTION,
@@ -96,22 +177,23 @@ class IntentParser:
                 timestamp=timestamp
             )
 
-        # Question detection
+        # =====================================================
+        # QUESTION DETECTION
+        # =====================================================
         for pattern in self.question_patterns:
             if re.search(pattern, text):
                 return self._create_question_intent(original_text, timestamp)
 
-        # Control detection
+        # =====================================================
+        # CONTROL MODE COMMANDS
+        # =====================================================
         for pattern in self.control_patterns:
             if pattern in text:
                 return self._create_control_intent(original_text, timestamp)
 
-        # Multi-command detection (clean split)
-        for keyword in self.command_keywords:
-            if text.count(keyword) > 1:
-                # Only handle first command here — rest will be processed later
-                break
-
+        # =====================================================
+        # GENERIC COMMAND DETECTION
+        # =====================================================
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:
@@ -124,7 +206,9 @@ class IntentParser:
                 timestamp
             )
 
-        # Fallback
+        # =====================================================
+        # FALLBACK
+        # =====================================================
         return Intent(
             intent_type=IntentType.UNKNOWN,
             text=original_text,
@@ -138,26 +222,19 @@ class IntentParser:
     # =========================================================
 
     def _detect_command(self, text: str) -> Tuple[Optional[IntentType], int, Optional[str]]:
-
         for keyword, (intent_type, risk_level) in self.command_keywords.items():
-            pattern = rf"\b{keyword}\b"
-            if re.search(pattern, text):
+            if re.search(rf"\b{keyword}\b", text):
                 return intent_type, risk_level, keyword
-
         return None, 0, None
 
     # =========================================================
 
     def _extract_target(self, text: str, keyword: str) -> Optional[str]:
-
         parts = text.split(keyword, 1)
         if len(parts) < 2:
             return None
 
         text_after_keyword = parts[1].strip()
-        if not text_after_keyword:
-            return None
-
         tokens = text_after_keyword.split()
 
         cleaned_tokens = [
@@ -212,10 +289,9 @@ class IntentParser:
             timestamp=timestamp
         )
 
-    # ---------------------------------------------------------
+    # =========================================================
 
     def _create_question_intent(self, original_text: str, timestamp: float) -> Intent:
-
         return Intent(
             intent_type=IntentType.QUESTION,
             text=original_text,
@@ -228,10 +304,9 @@ class IntentParser:
             timestamp=timestamp
         )
 
-    # ---------------------------------------------------------
+    # =========================================================
 
     def _create_control_intent(self, original_text: str, timestamp: float) -> Intent:
-
         return Intent(
             intent_type=IntentType.CONTROL,
             text=original_text,
@@ -242,10 +317,9 @@ class IntentParser:
             timestamp=timestamp
         )
 
-    # ---------------------------------------------------------
+    # =========================================================
 
     def _create_dictation_intent(self, original_text: str, timestamp: float) -> Intent:
-
         return Intent(
             intent_type=IntentType.DICTATION,
             text=original_text,

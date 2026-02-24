@@ -17,11 +17,13 @@ class Decision:
         self.message = message
         self.latency = latency
 
+    # 🔥 FIXED: parameters now preserved
     def to_dict(self) -> Dict:
         return {
             "status": self.status,
             "action": self.intent.action if self.intent else None,
             "target": self.intent.target if self.intent else None,
+            "parameters": self.intent.parameters if self.intent else {},
             "risk_level": self.intent.risk_level if self.intent else None,
             "requires_confirmation": self.intent.requires_confirmation if self.intent else None,
             "blocked_reason": self.intent.blocked_reason if self.intent else None,
@@ -53,9 +55,10 @@ class FusionEngine:
         if intent.intent_type == IntentType.CONTROL:
             self._handle_mode_control(intent)
 
-        # Only enrich — DO NOT update here
+        # Enrich context
         intent = self.memory.enrich(intent)
 
+        # Safety evaluation
         intent = self.safety.evaluate(intent, self.mode_manager.get_mode())
 
         if intent.blocked_reason:

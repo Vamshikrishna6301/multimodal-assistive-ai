@@ -4,3 +4,6 @@ webrtcvad-wheels
 faster-whisper
 pyttsx3
 pyautogui
+mss
+opencv-python
+numpy

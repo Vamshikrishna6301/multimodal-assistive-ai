@@ -4,6 +4,7 @@ from execution.adapters.windows_browser import WindowsBrowserAdapter
 from execution.adapters.windows_keyboard import WindowsKeyboardAdapter
 from execution.adapters.windows_file import WindowsFileAdapter
 from execution.adapters.windows_system import WindowsSystemAdapter
+from execution.vision.vision_executor import VisionExecutor  # ✅ Added
 
 
 class Dispatcher:
@@ -21,6 +22,9 @@ class Dispatcher:
         self.keyboard_adapter = WindowsKeyboardAdapter()
         self.file_adapter = WindowsFileAdapter()
         self.system_adapter = WindowsSystemAdapter()
+
+        # ✅ Vision Executor
+        self.vision_executor = VisionExecutor()
 
     def dispatch(self, decision: dict) -> UnifiedResponse:
 
@@ -60,6 +64,12 @@ class Dispatcher:
         # -----------------------------
         elif action == "SYSTEM_CONTROL":
             return self.system_adapter.handle(decision)
+
+        # -----------------------------
+        # VISION  ✅ NEW
+        # -----------------------------
+        elif action == "VISION":
+            return self.vision_executor.handle(decision)
 
         # -----------------------------
         # Unsupported Action

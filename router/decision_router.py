@@ -21,6 +21,7 @@ class DecisionRouter:
         "TYPE_TEXT",
         "FILE_OPERATION",
         "SYSTEM_CONTROL",
+        "VISION",  # ✅ Added Vision support
     }
 
     UTILITY_ACTIONS = {

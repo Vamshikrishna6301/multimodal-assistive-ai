@@ -28,8 +28,9 @@ class VoiceLoop:
         self.fusion = FusionEngine()
 
         # Inject shared memory into router
+# Inject TTS into VisionExecutor
         self.router = DecisionRouter(self.fusion.memory)
-
+        self.router.execution_engine.dispatcher.vision_executor.set_tts(self.tts)
         self.audio_queue = queue.Queue()
         self.text_queue = queue.Queue()
 
@@ -226,6 +227,10 @@ class VoiceLoop:
                 if text in ["stop", "cancel", "abort"]:
                     print("🛑 Interrupting speech...")
                     self.tts.stop()
+                    continue
+                if text == "stop camera":
+                    print("🛑 Stopping camera...")
+                    self.router.execution_engine.dispatcher.vision_executor.camera_detector.stop()
                     continue
 
                 self._handle_intent(text)
