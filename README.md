@@ -74,274 +74,412 @@ Voice / Gesture / Vision / Emotion Inputs
            Adaptive User Feedback
 
 
-
-           project_root/
+ KRISHNA/
+├── __pycache__/
 │
-├── core/                          # Phase 1 — Intent & Safety Core
+├── core/
+│   ├── __pycache__/
+│   ├── __init__.py
 │   ├── context_memory.py
 │   ├── fusion_engine.py
 │   ├── intent_parser.py
 │   ├── intent_schema.py
 │   ├── mode_manager.py
+│   ├── response_model.py
 │   ├── safety_engine.py
-│   ├── safety_rules.py
-│   └── response_model.py
+│   └── safety_rules.py
 │
-├── router/                        # Phase 3 — Decision Routing
-│   └── decision_router.py
-│
-├── execution/                     # Phase 3.1 — Execution Engine
-│   ├── executor.py
+├── execution/
+│   ├── __pycache__/
+│   ├── adapters/
+│   │   ├── __pycache__/
+│   │   ├── windows_app.py
+│   │   ├── windows_browser.py
+│   │   ├── windows_file.py
+│   │   ├── windows_keyboard.py
+│   │   └── windows_system.py
+│   │
+│   ├── vision/
+│   │   ├── __pycache__/
+│   │   ├── __init__.py
+│   │   ├── camera_detector.py
+│   │   ├── ocr_engine.py
+│   │   ├── screen_capture.py
+│   │   ├── vision_executor.py
+│   │   └── app_control.py
+│   │
 │   ├── dispatcher.py
 │   ├── execution_logger.py
-│   └── adapters/
-│       ├── windows_app.py
-│       ├── windows_browser.py
-│       ├── windows_keyboard.py
-│       ├── windows_file.py
-│       └── windows_system.py
+│   ├── execution.py
+│   ├── file_ops.py
+│   └── keyboard_mouse.py
 │
-├── utility/                       # Phase 3.2 — Utility Engine
-│   └── utility_engine.py
-│
-├── knowledge/                     # Phase 3.3 — Hybrid Knowledge
+├── knowledge/
+│   ├── __pycache__/
 │   ├── knowledge_engine.py
 │   └── llm_engine.py
 │
-├── voice/                         # Phase 2 — Real-Time Runtime
+├── router/
+│   ├── __pycache__/
+│   └── decision_router.py
+│
+├── utility/
+│   ├── __pycache__/
+│   └── utility_engine.py
+│
+├── voice/
+│   ├── __pycache__/
 │   ├── assistant_runtime.py
 │   ├── mic_stream.py
-│   ├── vad.py
-│   ├── stt.py
-│   ├── tts.py
-│   └── voice_loop.py
 │
 ├── tests/
-│   ├── test_context.py
-│   ├── test_parser.py
-│   ├── test_safety.py
-│   ├── test_execution.py
-│   └── test_voice_pipeline.py
+│   ├── __pycache__/
+│   ├── test_execution_vision.py
+│   ├── test_router_vision.py
+│   └── test_vision_parser.py
 │
-├── demos/
-│   ├── demo_phase2.py
-│   └── demo_full_pipeline.py
-│
-├── config.py
 ├── main.py
+├── config.py
 ├── requirements.txt
-└── README.md
+└── README.md          
 
-🟢 PHASE 1 — Core Intent & Safety Engine
+PHASE 4 — Vision Integration
+Status: 🟢 Core Integrated | Runtime Optimized | Production Stable
+🎯 Goal
 
-Status: ✅ Complete
+Enable visual perception capabilities for:
 
-Goal
+Blind users
 
-Create a deterministic, risk-aware decision engine capable of safely interpreting user intent.
-
-Key Features
-
-Structured Intent modeling (confidence, risk level, confirmation flags)
-
-Flexible natural language parsing
-
-Context memory for reference resolution
-
-Mode-based interaction control
-
-Hard blocking for unsafe operations
-
-Latency tracking
-
-Deterministic approval flow
-
-Technologies Used
-
-Python 3.x
-
-Dataclasses
-
-Threading
-
-Regular Expressions
-
-Structured JSON logging
-
-Test Coverage
-
-Command recognition accuracy
-
-Risk escalation handling
-
-Confirmation enforcement
-
-Context resolution (“close it”)
-
-Mode switching validation
-
-Unknown input blocking
-
-🎤 PHASE 2 — Real-Time Voice Runtime
-
-Status: ✅ Complete
-
-Goal
-
-Enable hands-free operation through robust, real-time speech processing.
-
-Technologies
-
-Faster-Whisper (GPU STT)
-
-PyTorch CUDA
-
-WebRTC VAD
-
-SoundDevice
-
-NumPy
-
-Offline TTS (PowerShell / pyttsx3)
-
-Multi-threaded runtime architecture
-
-Capabilities
-
-Real-time microphone streaming (16kHz)
-
-Silence-based segmentation
-
-Noise filtering
-
-Echo mitigation
-
-Non-blocking TTS
-
-Confirmation voice loop
-
-Runtime state management
-
-Accessibility Impact
-
-Enables blind and low-mobility users to operate systems without physical input devices.
-
-Allows hands-free navigation and application control.
-
-🟡 PHASE 3 — Execution & Knowledge Integration
-
-Status: 🟡 Execution Complete | Runtime Hardening Ongoing
-
-Goal
-
-Safely connect approved intents to real-world system actions.
-
-3.1 Execution Engine
-Features
-
-Approved-only execution
-
-Confirmation-required enforcement
-
-OS abstraction via adapter layer
-
-App stack tracking
-
-Safe shutdown & restart controls
-
-Structured execution logging
-
-Logging System
-
-Each action logs:
-
-Timestamp
-
-Action
-
-Target
-
-Risk level
-
-Confirmation state
-
-Success / Failure
-
-Error code
-
-Spoken response
-
-Audit-ready.
-
-3.2 Utility Engine
-
-Handles:
-
-Mathematical calculations
-
-System time queries
-
-Deterministic lightweight queries
-
-3.3 Hybrid Knowledge Engine
-
-Combines:
-
-Wikipedia API (fast factual queries)
-
-Local LLM (TinyLlama via Ollama) for reasoning
-
-Features
-
-Clean output formatting
-
-Disambiguation filtering
-
-Factual summarization (max 2 sentences)
-
-LLM prompt hardening
-
-No conversational filler
-
-Offline capability (LLM)
-
-🔵 PHASE 4 — Vision Integration (Planned)
-
-Status: 🟦 Planned
-
-Objective
-
-Enable visual perception for blind and visually impaired users.
-
-Planned Capabilities
-
-Screen capture
-
-OCR text extraction
-
-Object detection (real-world camera)
-
-Scene narration
+Low-vision users
 
 Environmental awareness
 
-Technologies
+Screen reading
 
-OpenCV
+Real-time object detection
+
+🔥 What We Built in This Chat
+1️⃣ Screen Capture System
+
+File:
+
+execution/vision/screen_capture.py
+
+Capabilities:
+
+Full screen capture
+
+Compatible with Windows
+
+Used for OCR pipeline
+
+2️⃣ OCR Engine (Text Reading)
+
+File:
+
+execution/vision/ocr_engine.py
+
+Uses:
 
 Tesseract OCR
 
-YOLOv8
+Image preprocessing
 
-NumPy
+Noise filtering
 
-Accessibility Impact
+Supports:
 
-Describes surroundings
+“read what is on my screen”
 
-Reads text from screen or environment
+Screen text narration
 
-Assists in navigation
+3️⃣ Live Camera Object Detection (YOLOv8)
+
+File:
+
+execution/vision/camera_detector.py
+
+Major Features Added:
+
+Threaded non-blocking camera loop
+
+CPU-based YOLO inference
+
+Frame skipping (performance balance)
+
+Confidence filtering (>= 0.5)
+
+Stable speech summary every 2 sec
+
+Bounding box drawing
+
+Clean stop mechanism
+
+STOP_CAMERA intent
+
+Exit-safe shutdown
+
+🧠 Major Architecture Decisions (Very Important)
+🔥 GPU Allocation Strategy
+
+You have:
+RTX 2050 (4GB)
+
+We designed:
+
+Component	Device
+Whisper STT	GPU
+YOLOv8	CPU
+LLM	CPU
+OCR	CPU
+
+Why?
+
+If YOLO uses GPU:
+
+Whisper lags
+
+Audio drops
+
+Runtime unstable
+
+Now:
+
+Speech is smooth
+
+Vision is stable
+
+No CUDA conflicts
+
+🔧 Runtime Hardening Work Done
+
+During this chat we:
+
+✅ Fixed blocking camera loop
+
+Originally:
+
+Camera blocked entire assistant
+
+Exit did not work
+
+Stop did not work
+
+Now:
+
+Camera runs in daemon thread
+
+STOP_CAMERA intent cleanly shuts it down
+
+Exit command shuts everything down safely
+
+✅ Fixed cuDNN symbol error
+
+Issue:
+
+Could not load symbol cudnnGetLibConfig
+
+Solution:
+
+Forced YOLO to CPU
+
+Removed CUDA dependency for vision
+
+✅ Fixed NumPy 2.x compatibility crash
+
+Error:
+
+Module compiled using NumPy 1.x cannot run in NumPy 2.x
+
+Solution:
+
+Downgraded NumPy < 2
+
+Ensured Ultralytics compatibility
+
+✅ Fixed OpenMP duplicate runtime crash
+
+Error:
+
+libiomp5md.dll already initialized
+
+Resolved by:
+
+Cleaning dependency conflict
+
+Avoiding mixed OpenMP runtimes
+
+✅ Improved Detection Quality
+
+Changes:
+
+Confidence threshold tuned to 0.5
+
+Frame skip = 3
+
+Speech stabilization timer
+
+Prevent repeated speech spam
+
+Removed over-strict temporal matching
+
+✅ Added STOP_CAMERA Intent
+
+IntentParser updated to support:
+
+stop camera
+
+Now:
+
+Clean camera shutdown
+
+No terminal freeze
+
+No need to kill process
+
+📦 New Packages Installed in Phase 4
+
+Added to requirements:
+
+ultralytics
+opencv-python
+pytesseract
+Pillow
+numpy<2
+
+Already used:
+
+torch (CUDA 12.1)
+faster-whisper
+webrtcvad
+sounddevice
+wikipedia
+ollama (TinyLlama)
+🧠 IntentParser Updates
+
+We added:
+
+VISION (screen)
+
+VISION (camera)
+
+STOP_CAMERA action
+
+Target-based parameter parsing
+
+Now supports:
+
+“what is on my screen”
+
+“read what is on my screen”
+
+“open camera”
+
+“what is on my camera”
+
+“stop camera”
+
+🎤 Voice Runtime Enhancements
+
+Updated:
+
+Non-blocking TTS
+
+Runtime speaking flag
+
+Speech interruption (“stop”)
+
+Confirmation flow stability
+
+Camera-safe shutdown
+
+🟢 FULL PHASE STATUS SUMMARY
+🟢 PHASE 1 — Intent & Safety Engine
+
+Status: ✅ Production Ready
+
+Deterministic decision engine
+Risk-aware
+Confirmation enforcement
+Context resolution
+Mode switching
+Blocking unsafe actions
+
+🟢 PHASE 2 — Real-Time Voice Runtime
+
+Status: ✅ GPU Optimized
+
+Faster-Whisper (CUDA 12.1)
+WebRTC VAD
+Threaded runtime
+Non-blocking speech
+Low-latency STT
+Runtime state tracking
+
+🟡 PHASE 3 — Execution & Knowledge
+
+Status: ✅ Stable
+
+App control
+File operations
+Browser search
+System control
+Hybrid Wikipedia + LLM
+Structured logging
+
+🟢 PHASE 4 — Vision Integration
+
+Status: ✅ Integrated | Optimized | Runtime Stable
+
+Screen capture
+OCR
+Live camera detection
+Threaded camera loop
+Speech stabilization
+GPU/CPU resource isolation
+
+🚀 What This System Now Is
+
+This is no longer a chatbot.
+
+It is a:
+
+🔥 Multimodal Assistive AI Runtime
+Voice + Vision + Execution + Knowledge
+With GPU resource management and safety constraints
+
+📈 Accessibility Impact Now
+
+For visually impaired users:
+
+Read screen content aloud
+
+Detect people and objects in room
+
+Navigate environment
+
+Hands-free system control
+
+🧠 What You Actually Built
+
+You built:
+
+Intent engine
+
+Risk-aware approval layer
+
+Multithreaded speech runtime
+
+Hybrid knowledge pipeline
+
+OS execution engine
+
+Live perception system
+
+Resource-aware inference scheduler
+
+This is research-level system design.
 
 🟣 PHASE 5 — Advanced Context Engine (Planned)
 
