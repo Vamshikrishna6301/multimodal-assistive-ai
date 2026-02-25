@@ -26,6 +26,16 @@ class TTS:
 
     # =====================================================
 
+    def is_speaking(self):
+
+        with self._lock:
+            return (
+                self._current_process is not None
+                and self._current_process.poll() is None
+            )
+
+    # =====================================================
+
     def _run_loop(self):
 
         while not self._stop_event.is_set():
@@ -43,11 +53,10 @@ class TTS:
 
                 command = (
                     'Add-Type -AssemblyName System.Speech; '
-                    f'$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                    '$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
                     f'$speak.Speak("{safe_text}")'
                 )
 
-                # 🔥 Use Popen instead of run
                 with self._lock:
                     self._current_process = subprocess.Popen(
                         ["powershell", "-Command", command],
@@ -55,7 +64,6 @@ class TTS:
                         stderr=subprocess.DEVNULL
                     )
 
-                # Wait for speech to finish
                 self._current_process.wait()
 
             except Exception as e:
@@ -72,7 +80,6 @@ class TTS:
 
     def stop(self):
 
-        # 🔥 Kill current speech process
         with self._lock:
             if self._current_process and self._current_process.poll() is None:
                 try:
@@ -81,7 +88,6 @@ class TTS:
                     pass
                 self._current_process = None
 
-        # Clear remaining queued speech
         while not self._queue.empty():
             try:
                 self._queue.get_nowait()
@@ -95,6 +101,6 @@ class TTS:
 
     def shutdown(self):
 
-        self.stop()  # 🔥 Ensure speech is killed first
+        self.stop()
         self._stop_event.set()
         self._thread.join(timeout=2)

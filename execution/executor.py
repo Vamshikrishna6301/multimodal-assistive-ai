@@ -26,22 +26,17 @@ class ExecutionEngine:
     def execute(self, decision: dict) -> UnifiedResponse:
 
         try:
-            # ------------------------------------------------
             # 1️⃣ Handle malformed input safely
-            # ------------------------------------------------
             if not isinstance(decision, dict):
-                safe_decision = {}
                 response = UnifiedResponse.error_response(
                     category="execution",
                     spoken_message="Invalid execution request.",
                     error_code="INVALID_DECISION"
                 )
-                self.logger.log(safe_decision, response)
+                self.logger.log({}, response)
                 return response
 
-            # ------------------------------------------------
             # 2️⃣ Must be APPROVED
-            # ------------------------------------------------
             if decision.get("status") != "APPROVED":
                 response = UnifiedResponse.error_response(
                     category="execution",
@@ -51,9 +46,7 @@ class ExecutionEngine:
                 self.logger.log(decision, response)
                 return response
 
-            # ------------------------------------------------
             # 3️⃣ Block if safety flagged
-            # ------------------------------------------------
             if decision.get("blocked_reason"):
                 response = UnifiedResponse.error_response(
                     category="execution",
@@ -63,9 +56,7 @@ class ExecutionEngine:
                 self.logger.log(decision, response)
                 return response
 
-            # ------------------------------------------------
             # 4️⃣ Validate action
-            # ------------------------------------------------
             action = decision.get("action")
             if not action:
                 response = UnifiedResponse.error_response(
@@ -76,14 +67,11 @@ class ExecutionEngine:
                 self.logger.log(decision, response)
                 return response
 
-            # ------------------------------------------------
             # 5️⃣ Risk & Confirmation Revalidation
-            # ------------------------------------------------
             risk_level = decision.get("risk_level", 0)
             requires_confirmation = decision.get("requires_confirmation", False)
             confirmed = decision.get("confirmed", False)
 
-            # 🔥 Allow dangerous action ONLY if confirmed=True
             if (requires_confirmation or risk_level >= 7) and not confirmed:
                 response = UnifiedResponse.error_response(
                     category="execution",
@@ -93,9 +81,7 @@ class ExecutionEngine:
                 self.logger.log(decision, response)
                 return response
 
-            # ------------------------------------------------
             # 6️⃣ SAFE TO EXECUTE
-            # ------------------------------------------------
             response = self.dispatcher.dispatch(decision)
 
             if response.success:
@@ -105,8 +91,6 @@ class ExecutionEngine:
             return response
 
         except Exception as e:
-            safe_decision = decision if isinstance(decision, dict) else {}
-
             response = UnifiedResponse.error_response(
                 category="execution",
                 spoken_message="An internal execution error occurred.",
@@ -114,7 +98,7 @@ class ExecutionEngine:
                 technical_message=str(e)
             )
 
-            self.logger.log(safe_decision, response)
+            self.logger.log(decision if isinstance(decision, dict) else {}, response)
             return response
 
     # =====================================================
@@ -135,3 +119,15 @@ class ExecutionEngine:
 
         elif action == "FILE_OPERATION" and target:
             self.context_memory.last_file = target
+
+    # =====================================================
+    # SAFE CAMERA ACCESS FOR ROUTER
+    # =====================================================
+
+    @property
+    def camera_detector(self):
+        """
+        Exposes CameraDetector safely to DecisionRouter
+        without leaking internal architecture.
+        """
+        return self.dispatcher.vision_executor.camera_detector

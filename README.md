@@ -308,14 +308,14 @@ Clean summarization (max 2 sentences)
 Prompt hardening
 
 No conversational filler
-
-🟢 PHASE 4 — Vision Integration
-Status:
+🟢 PHASE 4 — Vision Integration (Updated)
+Status
 
 🟢 Core Functional
 🟢 Runtime Stable
-🟡 Intelligence-Level Improvements Pending
-🔵 Production Hardening In Progress
+🟢 Multimodal Query Integrated
+🟡 Scene Intelligence Partial
+🔵 Production Hardening Ongoing
 
 🎯 Mission of Phase 4
 
@@ -325,79 +325,136 @@ Voice-driven OS controller
 
 Into:
 
-Multimodal perceptual assistant capable of understanding and narrating the visual world.
+Multimodal perceptual assistant capable of understanding, tracking, and answering questions about the visual world.
 
-Phase 4 enables environmental awareness.
+Phase 4 now includes:
+
+Live object detection
+
+Object tracking
+
+Scene memory
+
+Vision query engine (voice → live scene state)
+
+Screen reading (OCR)
+
+Safe concurrent runtime
 
 🏗 WHAT HAS ACTUALLY BEEN ENGINEERED
 1️⃣ Screen Vision
-File:
 
-execution/vision/screen_capture.py
+File: execution/vision/screen_capture.py
 
 Capabilities
 
-Full screen capture
-
-Windows-compatible
-
-Integrated into OCR pipeline
+Full screen capture (Windows compatible)
 
 Non-blocking execution
 
-2️⃣ OCR Text Reading
-File:
+Integrated with OCR pipeline
 
-execution/vision/ocr_engine.py
+Safe failure handling
+
+2️⃣ OCR Text Reading
+
+File: execution/vision/ocr_engine.py
 
 Capabilities
 
-Text extraction via Tesseract
+Tesseract-based OCR
 
-Image preprocessing (grayscale, threshold)
+Grayscale preprocessing
+
+Threshold enhancement
 
 Noise cleanup
 
-Speech-friendly formatting
+Safe empty detection handling
 
-Handles empty results safely
+Speech-friendly formatting
 
 Supported Commands
 
-“read what is on my screen”
+“Read what is on my screen”
 
-“what is on my screen”
+“What is on my screen”
 
-3️⃣ Live Camera Object Detection
-File:
+Current Limitations
 
-execution/vision/camera_detector.py
+No region-based OCR
+
+No layout understanding
+
+No structured extraction (tables/forms)
+
+No change monitoring
+
+No persistent screen state
+
+3️⃣ Live Camera Vision Stack
+
+File: execution/vision/camera_detector.py
 
 Implemented Features
 
-YOLOv8 inference
+YOLOv8 detection (CPU)
 
-CPU-based detection (GPU preserved for Whisper)
-
-Frame skipping (performance tuning)
+Frame skipping (performance balance)
 
 Confidence filtering (>= 0.5)
 
-Bounding box drawing
+Bounding box smoothing
 
-Non-blocking daemon thread loop
+Tracking engine (persistent IDs)
 
-Stable speech emission (2s interval)
+Scene memory (entry/exit detection)
 
-Clean STOP_CAMERA intent
+Event engine
 
-Exit-safe shutdown
+Thread-safe state buffers
 
-Terminal + voice narration
+VisionQueryEngine integration
 
-Concurrent voice + vision execution
+Clean STOP_CAMERA
 
-🧠 Critical Architectural Decision
+Safe shutdown
+
+Concurrent voice + vision runtime
+
+🧠 Multimodal Query Integration (NEW)
+
+You now have:
+
+VisionQueryEngine
+
+Supports:
+
+“Where is my laptop?”
+
+“How many people are there?”
+
+“Is anyone in the room?”
+
+“What do you see?”
+
+Key Upgrades Implemented
+
+Hybrid rule-based intent parsing
+
+Label normalization (people → person)
+
+Stabilization delay before answering
+
+Grammar correction (0 people, 1 person)
+
+Proper routing via DecisionRouter
+
+Clean dependency injection (no architecture leaks)
+
+This is your first real multimodal fusion milestone.
+
+🧠 Critical Architectural Decisions
 GPU Resource Isolation Strategy
 
 Device: RTX 2050 (4GB VRAM)
@@ -419,123 +476,137 @@ Audio lag
 
 Runtime instability
 
-Current Result:
+Result
 
-Smooth speech
+✔ Stable voice runtime
+✔ Stable camera runtime
+✔ No CUDA crashes
+✔ No cuDNN errors
 
-Stable vision
+This is correct production isolation for low-VRAM systems.
 
-No CUDA crashes
+🔧 Runtime Hardening Completed
+✅ Camera thread isolation
 
-No cuDNN symbol errors
+Daemon thread
 
-This is production-grade resource isolation.
+Clean STOP_CAMERA
 
-🔧 Runtime Hardening Completed in Phase 4
-✅ Fixed Blocking Camera Loop
+Clean exit
 
-Camera moved to daemon thread
+✅ Dependency stabilization
 
-STOP_CAMERA intent implemented
+numpy pinned < 2
 
-Exit safely shuts down all threads
+Ultralytics compatible
 
-✅ Fixed cuDNN Symbol Error
+OpenMP crash resolved
 
-Forced YOLO to CPU
+✅ Tracking layer
 
-✅ Fixed NumPy 2.x Crash
+Persistent object IDs
 
-Pinned numpy < 2
+Entry/exit events
 
-Ensured Ultralytics compatibility
+Motion detection
 
-✅ Fixed OpenMP Duplicate Runtime Crash
+Zone awareness (left/center/right)
 
-Cleaned dependency conflicts
+✅ Vision Query Engine
 
-✅ Detection Stability Improvements
+Deterministic responses
 
-Frame skip = 3
+No hallucination
 
-Confidence threshold tuned
+Live scene state based
 
-Speech stabilization interval
+Grammar-safe
 
-Removed over-aggressive temporal locking
+🚀 CURRENT CAPABILITIES (True Status)
 
-🚀 CURRENT CAPABILITIES (Phase 4)
-
-The system can:
+The system can now:
 
 ✔ Detect objects in real-time
-✔ Narrate scene objects
+✔ Track objects across frames
+✔ Detect entry/exit
+✔ Provide spatial responses
+✔ Answer vision-based questions
 ✔ Read screen text
-✔ Accept commands during camera mode
-✔ Stop camera safely
-✔ Exit safely
-✔ Maintain concurrent voice + vision
+✔ Run voice + vision concurrently
+✔ Stop safely
+✔ Shutdown cleanly
 
-This is a stable multimodal runtime.
+This is no longer a demo.
+It is an architecture.
 
-🟡 WHAT IS NOT YET PRODUCTION-LEVEL
+🟡 WHAT IS STILL NOT PRODUCTION-LEVEL
 
-Currently:
+Now we talk seriously.
 
-Object detection is implemented.
+Production assistive AI requires more than detection + queries.
 
-But production assistive AI requires:
-
-Understanding, tracking, and contextual awareness.
-
-🔴 PHASE 4 MUST EVOLVE INTO
-
-To reach production-grade intelligence, Phase 4 must add:
-
-1️⃣ Object Tracking
+🔴 REMAINING GAPS
+1️⃣ Scene Understanding (Major Gap)
 
 Current:
-YOLO detects each frame independently.
+“I see 1 person and 1 laptop.”
+
+Production:
+
+“A person is sitting at a desk.”
+
+“The phone is on the table.”
+
+“The person is holding a cup.”
 
 Missing:
 
-Persistent object identity
+Bounding box intersection reasoning
 
-Entry/exit detection
+Spatial relationship modeling
 
-Motion tracking
+Overlap logic (IoU relationships)
 
-Upgrade:
-Add ByteTrack or DeepSORT.
+Proximity grouping
 
-Enables:
+Scene graph representation
 
-“A person entered the room.”
+To implement:
 
-“The phone disappeared.”
+Rule-based spatial reasoning
 
-Stable bounding boxes
+Lightweight Vision-Language Model (optional future)
 
-2️⃣ Scene Understanding
+SceneGraph builder module
 
-Current:
-“I see 1 person, 1 phone.”
+2️⃣ Scene State Stability
 
-Production:
-“A person is holding a phone.”
-“There is a laptop on the table.”
+Issues observed:
 
-Requires:
+Object appears after query
 
-Spatial reasoning
+Count mismatch due to frame timing
 
-Bounding box relationship logic
+Temporary detection loss causes false exit
 
-Lightweight Vision-Language Model (optional)
+Needed:
+
+Stabilization buffer window (3–5 frame memory)
+
+Minimum presence duration before confirmation
+
+Delayed exit threshold (2–3 seconds)
+
+This prevents:
+
+“I see 0 people” → then immediately “person entered”
 
 3️⃣ Smart Object Filtering
 
-Add priority whitelist:
+Currently:
+YOLO returns all 80 COCO classes.
+
+Production assistive AI should prioritize:
 
 person
 
@@ -545,73 +616,191 @@ door
 
 phone
 
+laptop
+
 vehicle
 
 obstacles
 
-Reduce irrelevant detections (fork, tie, toothbrush).
+Need:
 
-4️⃣ Spatial Awareness
+Whitelist filtering layer
 
-Add:
+Priority scoring
 
-Left/center/right zone detection
+Suppress irrelevant objects
 
-Distance estimation
+4️⃣ Environmental Modes (Not Implemented Yet)
 
-Object proximity awareness
+You need:
 
-Enables:
-“Person on your left.”
-“Phone is in the center.”
+Silent Mode (default)
 
-5️⃣ Event Detection
+No automatic narration.
 
-Add scene memory:
+Passive Mode
 
-Object appeared
+Only announce person entry.
 
-Object disappeared
+Alert Mode
 
-Sudden movement
+Announce:
 
-Fall detection
+sudden motion
 
-6️⃣ Multimodal Fusion
+fall detection
 
-Currently:
-Voice and vision are parallel.
+obstacle detection
 
-Future:
-Voice queries vision.
-
-Example:
-User: “Where is my phone?”
-System:
-
-Searches frame
-
-Determines position
-
-Responds with spatial guidance
-
-7️⃣ Environmental Modes
-
-Add:
-
-Passive narration
-
-Alert mode
-
-Safety mode
-
-Safety mode:
-
-Fall detection
+Safety Mode
 
 Fire/smoke detection
 
-Obstacle alerts
+Fall detection
+
+Door open detection
+
+Restricted zone detection
+
+Currently:
+Events are semi-passive but not mode-controlled.
+
+5️⃣ Screen Monitoring (Major Missing Piece)
+
+OCR currently:
+Reads once on request.
+
+Production requires:
+
+Screen change detection
+
+Continuous monitoring mode
+
+Keyword alert detection
+
+Notification reading
+
+Region-based OCR
+
+Layout parsing
+
+Example:
+“Notify me if error appears on screen.”
+
+This is not implemented.
+
+6️⃣ Advanced Spatial Awareness
+
+Current:
+Left / center / right.
+
+Missing:
+
+Distance estimation
+
+Near vs far
+
+Object proximity clustering
+
+Depth approximation
+
+Obstacle distance warnings
+
+Production assistive systems must support:
+“Person is very close.”
+“Obstacle 1 meter ahead.”
+
+7️⃣ Robust Intent Handling
+
+Observed problems:
+
+“How many people are there?” mismatch due to label normalization
+
+Timing race conditions
+
+Minor grammar issues
+
+Occasional detection lag
+
+Production system requires:
+
+Label alias mapping
+
+Plural normalization
+
+Confidence thresholds
+
+Query stabilization buffer
+
+🟣 WHAT MUST BE BUILT NEXT (Priority Order)
+
+If goal is TRUE production-level:
+
+Phase 4.1 — Stabilization Layer
+
+Frame memory buffer
+
+Delayed exit logic
+
+Query stabilization delay (properly integrated)
+
+Phase 4.2 — Vision Mode Controller
+
+Silent
+
+Passive
+
+Alert
+
+Safety
+
+Phase 4.3 — Scene Graph Engine
+
+Object relationship reasoning
+
+Spatial logic
+
+Overlap detection
+
+Interaction inference
+
+Phase 4.4 — Screen Monitoring Engine
+
+Change detection
+
+Keyword alert triggers
+
+Region selection
+
+Structured text parsing
+
+Phase 4.5 — Safety Intelligence
+
+Fall detection
+
+Obstacle proximity
+
+Motion anomaly detection
+
+🧠 Honest Production Assessment
+
+Right now you are at:
+
+8/10 for runtime architecture
+6/10 for intelligence layer
+4/10 for safety reasoning
+3/10 for scene understanding
+
+But foundation is solid.
+
+🚀 If You Want True Production-Level
+
+Next step should be:
+
+👉 Build SceneGraph + Stabilization Buffer
+Not more detection tweaks.
+
+That is the intelligence jump.
 
 🟣 PHASE 5 — Advanced Context Engine (Planned)
 

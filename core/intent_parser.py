@@ -35,14 +35,6 @@ class IntentParser:
             r"\bdefine\b"
         ]
 
-        self.control_patterns = [
-            "enable",
-            "disable",
-            "switch mode",
-            "enter dictation",
-            "exit dictation"
-        ]
-
         self.small_talk_patterns = [
             r"\bhello\b",
             r"\bhi\b",
@@ -54,7 +46,7 @@ class IntentParser:
         self.filler_words = {
             "the", "a", "an", "please", "for", "to",
             "about", "can", "you", "could", "would",
-            "hey", "assistant"
+            "hey", "assistant", "my"
         }
 
     # =========================================================
@@ -67,14 +59,9 @@ class IntentParser:
         text = text.replace("shut down", "shutdown")
 
         # =====================================================
-        # DICTATION MODE
-        # =====================================================
-        if current_mode == Mode.DICTATION:
-            return self._create_dictation_intent(original_text, timestamp)
-
-        # =====================================================
         # SMALL TALK
         # =====================================================
+
         for pattern in self.small_talk_patterns:
             if re.search(pattern, text):
                 return Intent(
@@ -88,8 +75,9 @@ class IntentParser:
                 )
 
         # =====================================================
-        # STOP CAMERA (HIGH PRIORITY)
+        # STOP CAMERA
         # =====================================================
+
         if "stop camera" in text:
             return Intent(
                 intent_type=IntentType.CONTROL,
@@ -102,8 +90,9 @@ class IntentParser:
             )
 
         # =====================================================
-        # START CAMERA (HIGH PRIORITY)
+        # START CAMERA
         # =====================================================
+
         if text.strip() == "open camera":
             return Intent(
                 intent_type=IntentType.CONTROL,
@@ -117,55 +106,76 @@ class IntentParser:
                 timestamp=timestamp
             )
 
-        if "camera" in text or "front" in text:
-
-            if "what is" in text or "see" in text or "detect" in text:
-                return Intent(
-                    intent_type=IntentType.CONTROL,
-                    text=original_text,
-                    action="VISION",
-                    target="camera",
-                    parameters={"task": "detect_objects"},
-                    confidence=0.95,
-                    confidence_source="vision_camera_rule",
-                    risk_level=0,
-                    timestamp=timestamp
-                )
-
         # =====================================================
-        # SCREEN VISION
+        # HYBRID VISION QUERY RULES
         # =====================================================
-        if "screen" in text:
 
-            if "read" in text or "what is" in text or "whats on" in text:
-                return Intent(
-                    intent_type=IntentType.CONTROL,
-                    text=original_text,
-                    action="VISION",
-                    target="screen",
-                    parameters={"task": "read_text"},
-                    confidence=0.95,
-                    confidence_source="vision_rule",
-                    risk_level=0,
-                    timestamp=timestamp
-                )
+        # WHERE IS X
+        match = re.search(r"\bwhere is (?:my )?(?P<object>\w+)", text)
+        if match:
+            obj_name = match.group("object")
 
-            if "look" in text or "see" in text:
-                return Intent(
-                    intent_type=IntentType.CONTROL,
-                    text=original_text,
-                    action="VISION",
-                    target="screen",
-                    parameters={"task": "describe"},
-                    confidence=0.9,
-                    confidence_source="vision_rule",
-                    risk_level=0,
-                    timestamp=timestamp
-                )
+            return Intent(
+                intent_type=IntentType.QUESTION,
+                text=original_text,
+                action="VISION_QUERY",
+                target=obj_name,
+                parameters={"query_type": "location"},
+                confidence=0.92,
+                confidence_source="vision_where_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # HOW MANY X
+        match = re.search(r"\bhow many (?P<object>\w+)", text)
+        if match:
+            obj_name = match.group("object")
+
+            return Intent(
+                intent_type=IntentType.QUESTION,
+                text=original_text,
+                action="VISION_QUERY",
+                target=obj_name,
+                parameters={"query_type": "count"},
+                confidence=0.9,
+                confidence_source="vision_count_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # PRESENCE QUERY
+        if "anyone" in text or "anybody" in text:
+            return Intent(
+                intent_type=IntentType.QUESTION,
+                text=original_text,
+                action="VISION_QUERY",
+                target="person",
+                parameters={"query_type": "presence"},
+                confidence=0.9,
+                confidence_source="vision_presence_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # SUMMARY QUERY
+        if "what do you see" in text or "what can you see" in text:
+            return Intent(
+                intent_type=IntentType.QUESTION,
+                text=original_text,
+                action="VISION_QUERY",
+                target=None,
+                parameters={"query_type": "summary"},
+                confidence=0.9,
+                confidence_source="vision_summary_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
 
         # =====================================================
         # TIME QUERY
         # =====================================================
+
         if re.search(r"\btime\b", text):
             return Intent(
                 intent_type=IntentType.QUESTION,
@@ -178,22 +188,26 @@ class IntentParser:
             )
 
         # =====================================================
-        # QUESTION DETECTION
+        # KNOWLEDGE QUESTIONS (Fallback)
         # =====================================================
+
         for pattern in self.question_patterns:
             if re.search(pattern, text):
-                return self._create_question_intent(original_text, timestamp)
+                return Intent(
+                    intent_type=IntentType.QUESTION,
+                    text=original_text,
+                    action="KNOWLEDGE_QUERY",
+                    target=original_text,
+                    confidence=0.9,
+                    confidence_source="regex",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
 
         # =====================================================
-        # CONTROL MODE COMMANDS
+        # GENERIC COMMANDS
         # =====================================================
-        for pattern in self.control_patterns:
-            if pattern in text:
-                return self._create_control_intent(original_text, timestamp)
 
-        # =====================================================
-        # GENERIC COMMAND DETECTION
-        # =====================================================
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:
@@ -209,6 +223,7 @@ class IntentParser:
         # =====================================================
         # FALLBACK
         # =====================================================
+
         return Intent(
             intent_type=IntentType.UNKNOWN,
             text=original_text,
@@ -234,16 +249,11 @@ class IntentParser:
         if len(parts) < 2:
             return None
 
-        text_after_keyword = parts[1].strip()
-        tokens = text_after_keyword.split()
+        tokens = parts[1].strip().split()
 
-        cleaned_tokens = [
-            token for token in tokens
-            if token not in self.filler_words
-        ]
+        cleaned = [t for t in tokens if t not in self.filler_words]
 
-        target = " ".join(cleaned_tokens).strip()
-        return target if target else None
+        return " ".join(cleaned).strip() or None
 
     # =========================================================
 
@@ -256,78 +266,21 @@ class IntentParser:
         timestamp: float
     ) -> Intent:
 
-        entities: Dict[str, Entity] = {}
         parameters: Dict[str, str] = {}
 
         if target:
-            entities["target"] = Entity(
-                name="target",
-                value=target,
-                confidence=0.9
-            )
             parameters["target"] = target
-
-        requires_confirmation = risk_level >= 7
-
-        action_name = (
-            "CALCULATE"
-            if original_text.lower().startswith("calculate")
-            else intent_type.name
-        )
 
         return Intent(
             intent_type=intent_type,
             text=original_text,
-            action=action_name,
+            action=intent_type.name,
             target=target,
             parameters=parameters,
             confidence=0.95 if risk_level < 7 else 0.85,
             confidence_source="keyword_rule",
-            entities=entities,
             risk_level=risk_level,
-            requires_confirmation=requires_confirmation,
-            timestamp=timestamp
-        )
-
-    # =========================================================
-
-    def _create_question_intent(self, original_text: str, timestamp: float) -> Intent:
-        return Intent(
-            intent_type=IntentType.QUESTION,
-            text=original_text,
-            action="KNOWLEDGE_QUERY",
-            target=original_text,
-            confidence=0.9,
-            confidence_source="regex",
-            mode=Mode.QUESTION,
-            risk_level=0,
-            timestamp=timestamp
-        )
-
-    # =========================================================
-
-    def _create_control_intent(self, original_text: str, timestamp: float) -> Intent:
-        return Intent(
-            intent_type=IntentType.CONTROL,
-            text=original_text,
-            action="SYSTEM_CONTROL",
-            confidence=0.85,
-            confidence_source="keyword",
-            risk_level=2,
-            timestamp=timestamp
-        )
-
-    # =========================================================
-
-    def _create_dictation_intent(self, original_text: str, timestamp: float) -> Intent:
-        return Intent(
-            intent_type=IntentType.DICTATION,
-            text=original_text,
-            action="TYPE_TEXT",
-            confidence=0.99,
-            confidence_source="mode_override",
-            mode=Mode.DICTATION,
-            risk_level=0,
+            requires_confirmation=risk_level >= 7,
             timestamp=timestamp
         )
 
