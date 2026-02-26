@@ -28,8 +28,8 @@ class VoiceLoop:
         print("  ✓ VAD initialized")
         
         self.stt = STT()
-        print("  ✓ STT initialized (Whisper loaded)")
-        
+        print("  ✓ STT initialized")
+
         self.tts = TTS(runtime=self.runtime)
         print("  ✓ TTS initialized")
 
@@ -165,74 +165,56 @@ class VoiceLoop:
     # INTENT WORKER
     # =====================================================
 
+        # =====================================================
+    # INTENT WORKER
+    # =====================================================
+
     def _intent_worker(self):
 
-        while self.runtime.running:
+        import pythoncom
+        pythoncom.CoInitialize()   # 🔥 Initialize COM (STA apartment)
 
-            try:
+        try:
+            while self.runtime.running:
+
                 try:
-                    text = self.text_queue.get(timeout=1)
-                except queue.Empty:
-                    continue
-
-                clean_text = self._normalize(text)
-
-                # =====================================================
-                # HARD SYSTEM INTERRUPTS (Highest Priority)
-                # =====================================================
-
-                if self._is_exit_command(clean_text):
-                    print("🛑 Assistant shutting down...")
-                    self.tts.stop()
-                    self.tts.speak("Shutting down assistant.")
-                    self.runtime.stop()
-                    return
-
-                if self._is_stop_command(clean_text):
-                    print("🛑 Interrupting speech...")
-                    self.tts.stop()
-                    continue
-
-                # =====================================================
-                # Confirmation handling
-                # =====================================================
-
-                if self.runtime.is_awaiting_confirmation():
-
-                    if clean_text in ["yes", "y", "confirm"]:
-                        pending = self.runtime.pending_intent
-                        self._execute_confirmed(pending)
-                        self.runtime.clear_confirmation()
+                    try:
+                        text = self.text_queue.get(timeout=1)
+                    except queue.Empty:
                         continue
 
-                    if clean_text in ["no", "n", "cancel"]:
-                        print("🤖 Assistant: Action cancelled.")
-                        self.tts.speak("Action cancelled.")
-                        self.runtime.clear_confirmation()
+                    clean_text = self._normalize(text)
+
+                    # EXIT
+                    if self._is_exit_command(clean_text):
+                        print("🛑 Assistant shutting down...")
+                        self.tts.stop()
+                        self.tts.speak("Shutting down assistant.")
+                        self.runtime.stop()
+                        return
+
+                    # STOP SPEECH
+                    if self._is_stop_command(clean_text):
+                        print("🛑 Interrupting speech...")
+                        self.tts.stop()
                         continue
 
-                    continue
+                    # SOCIAL
+                    if clean_text in ["hello", "hi"]:
+                        self.tts.speak("Hello! How can I help you?")
+                        continue
 
-                # =====================================================
-                # Social small talk
-                # =====================================================
+                    if clean_text in ["thank you", "thanks"]:
+                        self.tts.speak("You're welcome.")
+                        continue
 
-                if clean_text in ["hello", "hi"]:
-                    self.tts.speak("Hello! How can I help you?")
-                    continue
+                    self._handle_intent(clean_text)
 
-                if clean_text in ["thank you", "thanks"]:
-                    self.tts.speak("You're welcome.")
-                    continue
+                except Exception as e:
+                    print("⚠️ Intent worker crashed:", e)
 
-                # =====================================================
-                # Normal Intent Handling
-                # =====================================================
-
-                self._handle_intent(clean_text)
-
-            except Exception as e:
-                print("⚠️ Intent worker crashed:", e)
+        finally:
+            pythoncom.CoUninitialize()   # 🔥 Clean COM shutdown
 
     # =====================================================
     # INTENT ROUTING
@@ -271,29 +253,6 @@ class VoiceLoop:
                 self.tts.speak(response.spoken_message)
             else:
                 self.tts.speak("Done.")
-
-    # =====================================================
-    # CONFIRMED EXECUTION
-    # =====================================================
-
-    def _execute_confirmed(self, decision_dict: dict):
-
-        if not decision_dict:
-            self.tts.speak("No pending action.")
-            return
-
-        confirmed_decision = decision_dict.copy()
-        confirmed_decision["status"] = "APPROVED"
-        confirmed_decision["confirmed"] = True
-
-        self.runtime.start_execution()
-        response = self.router.route(confirmed_decision)
-        self.runtime.finish_execution()
-
-        if response and hasattr(response, "spoken_message"):
-            self.tts.speak(response.spoken_message)
-        else:
-            self.tts.speak("Done.")
 
     # =====================================================
     # UTILITIES

@@ -7,16 +7,14 @@ from execution.vision.vision_query_engine import VisionQueryEngine
 
 
 class DecisionRouter:
-
-    EXECUTION_ACTIONS = {
-        "OPEN_APP",
-        "SEARCH",
-        "TYPE_TEXT",
-        "FILE_OPERATION",
-        "SYSTEM_CONTROL",
-        "VISION",
-        "STOP_CAMERA"
-    }
+    """
+    Central Routing Engine
+    Routes approved decisions to:
+    - Execution Engine
+    - Utility Engine
+    - Knowledge Engine
+    - Vision Query Engine
+    """
 
     UTILITY_ACTIONS = {
         "CALCULATE",
@@ -34,7 +32,6 @@ class DecisionRouter:
         self.llm_engine = LLMEngine()
         self.wikipedia_engine = KnowledgeEngine()
 
-        # 🔥 Proper injection (clean architecture)
         self.vision_query_engine = VisionQueryEngine(
             self.execution_engine.camera_detector
         )
@@ -60,49 +57,40 @@ class DecisionRouter:
             )
 
         action = decision.get("action")
+
         print("DEBUG ROUTER ACTION VALUE:", action, "| TYPE:", type(action))
 
-        if isinstance(action, str):
-            action = action.upper()
-
         # --------------------------------------------------
-        # VISION QUERY (Highest priority)
+        # VISION QUERY (separate from UIA screen reading)
         # --------------------------------------------------
 
         if action == "VISION_QUERY":
             return self.vision_query_engine.handle(decision)
 
         # --------------------------------------------------
-        # EXECUTION
-        # --------------------------------------------------
-
-        if action in self.EXECUTION_ACTIONS:
-            return self.execution_engine.execute(decision)
-
-        # --------------------------------------------------
-        # UTILITY
+        # UTILITY ACTIONS
         # --------------------------------------------------
 
         if action in self.UTILITY_ACTIONS:
             return self.utility_engine.handle(decision)
 
         # --------------------------------------------------
-        # KNOWLEDGE
+        # KNOWLEDGE ACTIONS
         # --------------------------------------------------
 
         if action in self.KNOWLEDGE_ACTIONS:
 
             query = decision.get("target", "")
 
-            if query.lower().startswith(("who is", "who was")):
+            if isinstance(query, str) and query.lower().startswith(("who is", "who was")):
                 return self.wikipedia_engine.handle(decision)
 
             return self.llm_engine.handle(decision)
 
         # --------------------------------------------------
+        # EVERYTHING ELSE → EXECUTION ENGINE
+        # --------------------------------------------------
+        # 🔥 This removes the need to maintain EXECUTION_ACTIONS list
+        # and prevents future "Unsupported action type" bugs.
 
-        return UnifiedResponse.error_response(
-            category="router",
-            spoken_message="Unsupported action type.",
-            error_code="UNSUPPORTED_ACTION_TYPE"
-        )
+        return self.execution_engine.execute(decision)

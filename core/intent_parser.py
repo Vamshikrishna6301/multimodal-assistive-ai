@@ -24,7 +24,14 @@ class IntentParser:
             "search": (IntentType.SEARCH, 1),
             "type": (IntentType.TYPE_TEXT, 1),
             "write": (IntentType.TYPE_TEXT, 1),
-            "calculate": ("CALCULATE", 0),  # fixed
+            "calculate": ("CALCULATE", 0),
+        }
+
+        # 🔥 NEW — Word Number Mapping
+        self.number_words = {
+            "one": 1, "two": 2, "three": 3, "four": 4,
+            "five": 5, "six": 6, "seven": 7, "eight": 8,
+            "nine": 9, "ten": 10
         }
 
         self.question_patterns = [
@@ -56,7 +63,106 @@ class IntentParser:
         timestamp = time.time()
         original_text = text
         text = self._normalize(text)
-        text = text.replace("shut down", "shutdown")
+
+        # =====================================================
+        # 🔥 READ SCREEN
+        # =====================================================
+
+        if re.search(r"(what(?:s| is)? on (my )?screen|read screen|show options|what are the options)", text):
+            return Intent(
+                intent_type=IntentType.CONTROL,
+                text=original_text,
+                action="READ_SCREEN",
+                confidence=0.98,
+                confidence_source="semantic_ui_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # =====================================================
+        # 🔥 CLICK INDEX (digit)
+        # =====================================================
+
+        click_match = re.search(r"(click|select|open|choose)\s+(number\s+)?(\d+)", text)
+        if click_match:
+            index = int(click_match.group(3))
+            return Intent(
+                intent_type=IntentType.CONTROL,
+                text=original_text,
+                action="CLICK_INDEX",
+                parameters={"index": index},
+                confidence=0.95,
+                confidence_source="semantic_ui_rule",
+                risk_level=0,
+                timestamp=timestamp
+            )
+
+        # =====================================================
+        # 🔥 CLICK INDEX (word number)
+        # =====================================================
+
+        word_click = re.search(r"(click|select|choose)\s+(number\s+)?(\w+)", text)
+        if word_click:
+            word = word_click.group(3)
+            if word in self.number_words:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="CLICK_INDEX",
+                    parameters={"index": self.number_words[word]},
+                    confidence=0.95,
+                    confidence_source="semantic_ui_word_number",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+        # =====================================================
+        # 🔥 NUMBER ONLY (example: "number five")
+        # =====================================================
+
+        number_only = re.search(r"^number\s+(\w+)$", text)
+        if number_only:
+            word = number_only.group(1)
+
+            if word.isdigit():
+                index = int(word)
+            elif word in self.number_words:
+                index = self.number_words[word]
+            else:
+                index = None
+
+            if index:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="CLICK_INDEX",
+                    parameters={"index": index},
+                    confidence=0.95,
+                    confidence_source="semantic_ui_number_only",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
+        # =====================================================
+        # 🔥 CLICK BY NAME
+        # =====================================================
+
+        name_match = re.search(r"(click|press|select)\s+(the\s+)?(.+)", text)
+        if name_match:
+            name = name_match.group(3).strip()
+
+            # Avoid misfiring on numeric commands
+            if not name.isdigit() and name not in self.number_words:
+                return Intent(
+                    intent_type=IntentType.CONTROL,
+                    text=original_text,
+                    action="CLICK_NAME",
+                    parameters={"name": name},
+                    confidence=0.9,
+                    confidence_source="semantic_ui_name",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
 
         # =====================================================
         # STOP CAMERA
@@ -86,65 +192,6 @@ class IntentParser:
                 parameters={"task": "detect_objects"},
                 confidence=0.95,
                 confidence_source="camera_open_rule",
-                risk_level=0,
-                timestamp=timestamp
-            )
-
-        # =====================================================
-        # VISION QUERY RULES
-        # =====================================================
-
-        match = re.search(r"\bwhere is (?:my )?(?P<object>\w+)", text)
-        if match:
-            obj_name = match.group("object")
-            return Intent(
-                intent_type=IntentType.QUESTION,
-                text=original_text,
-                action="VISION_QUERY",
-                target=obj_name,
-                parameters={"query_type": "location"},
-                confidence=0.92,
-                confidence_source="vision_where_rule",
-                risk_level=0,
-                timestamp=timestamp
-            )
-
-        match = re.search(r"\bhow many (?P<object>\w+)", text)
-        if match:
-            obj_name = match.group("object")
-            return Intent(
-                intent_type=IntentType.QUESTION,
-                text=original_text,
-                action="VISION_QUERY",
-                target=obj_name,
-                parameters={"query_type": "count"},
-                confidence=0.9,
-                confidence_source="vision_count_rule",
-                risk_level=0,
-                timestamp=timestamp
-            )
-
-        if "anyone" in text or "anybody" in text:
-            return Intent(
-                intent_type=IntentType.QUESTION,
-                text=original_text,
-                action="VISION_QUERY",
-                target="person",
-                parameters={"query_type": "presence"},
-                confidence=0.9,
-                confidence_source="vision_presence_rule",
-                risk_level=0,
-                timestamp=timestamp
-            )
-
-        if "what do you see" in text or "what can you see" in text:
-            return Intent(
-                intent_type=IntentType.QUESTION,
-                text=original_text,
-                action="VISION_QUERY",
-                parameters={"query_type": "summary"},
-                confidence=0.9,
-                confidence_source="vision_summary_rule",
                 risk_level=0,
                 timestamp=timestamp
             )
@@ -182,14 +229,13 @@ class IntentParser:
                 )
 
         # =====================================================
-        # GENERIC COMMANDS
+        # GENERIC COMMANDS (UNCHANGED)
         # =====================================================
 
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:
 
-            # Special case: calculate
             if keyword == "calculate":
                 expression = text.replace("calculate", "").strip()
                 return Intent(
@@ -219,7 +265,7 @@ class IntentParser:
             )
 
         # =====================================================
-        # SMALL TALK (Moved to bottom)
+        # SMALL TALK
         # =====================================================
 
         for pattern in self.small_talk_patterns:

@@ -14,77 +14,149 @@ A safety-first multimodal assistive AI platform designed to empower individuals 
 
 This system bridges the gap between human intent and digital control in real-world environments.
 
+
+
+Voice
+↓
+Intent Parser
+↓
+Context Memory
+↓
+Safety Engine
+↓
+Fusion Engine
+↓
+Decision Router
+↓
+Execution Engine
+↓
+(UIA Service / OS Adapters / Utility / Knowledge)
+↓
+User Feedback
+
 📂 Complete Project Structure
 KRISHNA/
 │
-├── core/                          # Phase 1 — Intent & Safety Core
+├── __pycache__/
+├── .cache/
+│
+├── core/                              # Phase 1 — Intent & Safety Core
+│   ├── __pycache__/
 │   ├── __init__.py
 │   ├── context_memory.py
 │   ├── fusion_engine.py
 │   ├── intent_parser.py
 │   ├── intent_schema.py
 │   ├── mode_manager.py
+│   ├── neural_intent_classifier.py
+│   ├── response_model.py
 │   ├── safety_engine.py
-│   ├── safety_rules.py
-│   └── response_model.py          # UnifiedResponse
+│   └── safety_rules.py
 │
-├── router/                        # Phase 3 — Decision Routing
+├── data/
+│
+├── execution/                         # Phase 3 — Execution Layer
+│   ├── __pycache__/
+│   │
+│   ├── adapters/                      # OS abstraction layer
+│   │   ├── __pycache__/
+│   │   ├── windows_app.py
+│   │   ├── windows_browser.py
+│   │   ├── windows_file.py
+│   │   ├── windows_keyboard.py
+│   │   └── windows_system.py
+│   │
+│   ├── uia_service/                   # 🔥 NEW — External UI Automation Service
+│   │   ├── __pycache__/
+│   │   ├── uia_client.py              # Socket client (used by ExecutionEngine)
+│   │   └── uia_server.py              # Standalone UIA socket server
+│   │
+│   ├── vision/                        # Phase 4 — Vision Integration
+│   │   ├── __pycache__/
+│   │   ├── __init__.py
+│   │   ├── camera_detector.py
+│   │   ├── event_engine.py
+│   │   ├── ocr_engine.py
+│   │   ├── scene_graph_engine.py
+│   │   ├── scene_memory.py
+│   │   ├── screen_capture.py
+│   │   ├── screen_monitoring_engine.py
+│   │   ├── stabilization_buffer.py
+│   │   ├── tracking_engine.py
+│   │   ├── vision_executor.py
+│   │   ├── vision_mode_controller.py
+│   │   └── vision_query_engine.py
+│   │
+│   ├── dispatcher.py                  # Routes execution to adapters
+│   ├── execution_logger.py            # Execution audit layer (partial)
+│   ├── executor.py                    # 🔥 Main ExecutionEngine
+│   ├── file_ops.py
+│   └── keyboard_mouse.py
+│
+├── infrastructure/                    # Production runtime infrastructure
+│   ├── __pycache__/
+│   ├── __init__.py
+│   ├── cache.py
+│   ├── config_manager.py
+│   ├── error_handling.py
+│   ├── health_monitor.py
+│   ├── logger.py
+│   ├── persistence.py
+│   ├── production_logger.py
+│   ├── system_monitor.py
+│   └── validation.py
+│
+├── knowledge/                         # Phase 3.3 — Knowledge Layer
+│   ├── __pycache__/
+│   ├── knowledge_engine.py            # Wikipedia
+│   └── llm_engine.py                  # Local LLM (TinyLlama / Ollama)
+│
+├── logs/
+│
+├── models/
+│
+├── phase4_ai_intelligence/
+│
+├── router/                            # Phase 3 — Decision Router
+│   ├── __pycache__/
 │   └── decision_router.py
 │
-├── execution/                     # Phase 3.1 — Execution Engine
-│   ├── execution_engine.py
-│   ├── dispatcher.py
-│   └── adapters/
-│       ├── windows_app.py
-│       ├── windows_browser.py
-│       ├── windows_keyboard.py
-│       ├── windows_file.py
-│       └── windows_system.py
+├── tests/
 │
-├── utility/                       # Phase 3.2 — Utility Engine
+├── utility/                           # Phase 3.2 — Utility Engine
+│   ├── __pycache__/
 │   └── utility_engine.py
 │
-├── knowledge/                     # Phase 3.3 — Hybrid Knowledge
-│   ├── knowledge_engine.py        # Wikipedia
-│   └── llm_engine.py              # TinyLlama (Ollama)
-│
-├── execution/vision/              # Phase 4 — Vision Integration
-│   ├── screen_capture.py
-│   ├── ocr_engine.py
-│   ├── camera_detector.py
-│   ├── vision_executor.py
-│   ├── vision_query_engine.py
-│   ├── scene_graph_engine.py        # NEW: Spatial reasoning
-│   ├── stabilization_buffer.py      # NEW: Detection smoothing
-│   ├── screen_monitoring_engine.py  # NEW: Screen change detection
-│   ├── vision_mode_controller.py    # NEW: Mode-based behavior
-│   ├── tracking_engine.py
-│   ├── scene_memory.py
-│   └── event_engine.py
-│
-├── voice/                         # Phase 2 + Phase 3.5 — Runtime
+├── voice/                             # Phase 2 — Voice Runtime
+│   ├── __pycache__/
 │   ├── assistant_runtime.py
 │   ├── mic_stream.py
-│   ├── vad.py
 │   ├── stt.py
 │   ├── tts.py
-│   └── voice_loop.py
+│   ├── vad.py
+│   ├── voice_loop.py
+│   └── wakeword.py
 │
+├── .gitignore
 ├── config.py
-├── main.py
-├── requirements.txt
-├── README.md
+├── main.py                            # 🔥 Main system entrypoint
 │
-├── tests/                         # Consolidated tests
-│   ├── test_context.py
-│   ├── test_parser.py
-│   ├── test_safety.py
-│   ├── test_execution.py
-│   └── test_voice_pipeline.py
+├── debug_tools/                       # (Recommended grouping)
+│   ├── camera_index_test.py
+│   ├── check_active_window.py
+│   ├── debug_startup.py
+│   ├── debug_startup2.py
+│   └── direct_record_test.py
 │
-└── demos/
-    ├── demo_phase2.py
-    └── demo_full_pipeline.py
+├── demos/
+│   ├── demo_phase2.py
+│   ├── demo_full_pipeline.py
+│   ├── demo_phase4_camera_visual.py
+│   ├── demo_phase4_live_corrected.py
+│   ├── demo_phase4_text_visual.py
+│   └── demo_phase4_vision.py
+│
+└── README.md
 
 🏗 System Architecture
 Voice / Gesture / Vision / Emotion
@@ -494,217 +566,259 @@ Assistant speaks	No self-transcription
 Say "stop" while speaking	Speech interrupts
 Silent environment	No fake triggers
 Background fan noise	No false commands
-🟢 True Phase 3 Completion Criteria
 
-Phase 3 is only complete when:
 
-✔ Execution stable
-✔ Confirmation enforced
-✔ Runtime stable
-✔ No echo loop
-✔ No one-command freeze
-✔ No false self-triggering
-✔ OS adapters fully mapped
-✔ Logging implemented
-� PHASE 4 — Vision Integration
 
-Status: ✅ Complete
 
-🎯 Goal
+🆕 Major Architecture Upgrade (Phase 3 Final Form)
 
-Add visual perception to enable multimodal queries and scene understanding.
+During runtime stabilization and UI integration, the architecture was significantly upgraded.
 
-🔹 Components Implemented
+🔥 External UIA Service (New)
 
-1️⃣ Screen Capture & OCR
-   - Live screen reading
-   - Text extraction via Tesseract
-   - Region-based OCR
+UI automation was extracted into a separate socket-based service:
 
-2️⃣ Camera Detection & Tracking
-   - Real-time object detection (YOLOv8)
-   - Multi-object tracking
-   - Persistent object IDs
-   - Entry/exit detection
+Assistant → UIAClient (socket) → UIA Server → pywinauto
+Why This Was Done
 
-3️⃣ Scene Graph Engine (NEW)
-   - Spatial relationship analysis
-   - Proximity detection
-   - Interaction inference
-   - Natural language scene description
+Previously:
 
-4️⃣ Stabilization Buffer (NEW)
-   - Smooths detection jitter
-   - Prevents false positives
-   - Confirms object presence
-   - Tracks object lifetime
+UIA ran inside main assistant thread
 
-5️⃣ Screen Monitoring Engine (NEW)
-   - Change detection
-   - Keyword alerts
-   - Error detection
-   - Notification reading
+Thread locks caused freezes
 
-6️⃣ Vision Mode Controller (NEW)
-   - SILENT: No automatic narration
-   - PASSIVE: Person entry/exit alerts
-   - ALERT: Motion and obstacle warnings
-   - SAFETY: Critical threat detection
+UI traversal blocked voice loop
 
-🧪 Supported Commands
+Deadlocks occurred
 
-"Read what is on my screen"
-"What do you see?"
-"Where is my laptop?"
-"How many people are there?"
-"Is anyone in the room?"
-"What objects are near me?"
-"Monitor screen for errors"
-"Open camera"
-"Stop camera"
+Now:
 
-🛠 Tech Stack
+UIA runs as isolated service
 
-- OpenCV: Image processing
-- YOLOv8: Object detection (CPU)
-- Tesseract: OCR
-- NumPy: Spatial calculations
-- Threading: Async vision pipeline
+No cross-thread COM conflicts
 
-📊 Key Features
+No UI freeze blocking voice
 
-✅ Real-time object detection and tracking
-✅ Spatial reasoning and scene understanding
-✅ Stabilized detection for consistency
-✅ Screen text extraction and monitoring
-✅ Mode-based vision behavior
-✅ Safe concurrent voice + vision runtime
-✅ Multimodal query support
-✅ Event-driven architecture
+Clean separation of concerns
 
-🟣 PHASE 5 — Advanced Context Engine
+🖱 Semantic UI Control (Now Working)
 
-Status: 🟣 Planned
+The assistant now supports:
 
-Features
+✅ Screen Reading
 
-Multi-step memory
+"What is on my screen?"
 
-Action chaining
+Returns:
 
-Reference resolution graph
+Active window name
 
-Task continuation logic
+Interactive elements (indexed)
 
-🟠 PHASE 6 — Gesture Interaction
+Element type + name
 
-Status: 🟠 Planned
+Works across:
 
-Features
+Notepad
 
-MediaPipe Hands
+File Explorer
 
-Gesture override
+VS Code
 
-Emergency stop
+Chrome
 
-Cursor control
+Windows Settings
 
-🔴 PHASE 7 — Emotion Awareness
+Any UIA-compatible Windows app
 
-Status: 🔴 Planned
+✅ Click by Index
 
-Features
+"Click 5"
+"Click number 3"
 
-Face emotion detection
+Works reliably.
 
-Voice stress analysis
+✅ Click by Name (New)
 
-Adaptive response tone
+"Click edit"
+"Click file"
+"Click view"
+"Click bold"
 
-Confirmation sensitivity adjustment
+Supported via:
 
-🟡 PHASE 8 — Multimodal Fusion Core
+action = CLICK_NAME
+parameters = {"name": "edit"}
 
-Status: 🟡 Critical Future Phase
+Fixed routing bug where CLICK_NAME was not reaching ExecutionEngine.
 
-Goal
+🧠 Router Architecture Fix (Critical Fix)
 
-Resolve conflicts between:
+Previously:
 
+if action in EXECUTION_ACTIONS:
+
+This caused:
+
+CLICK_NAME not routed
+
+Unsupported action errors
+
+Now:
+
+All non-utility / non-knowledge actions
+→ go directly to ExecutionEngine
+
+This prevents future routing bugs.
+
+🔌 UIA Communication Protocol (Final Form)
+Server
+
+Raw TCP socket
+
+JSON payload
+
+No HTTP
+
+No Flask
+
+No requests library
+
+Client
+
+Raw socket
+
+Sends JSON
+
+Receives JSON
+
+Decodes safely
+
+Fix resolved:
+
+BadStatusLine
+Connection aborted
+Unsupported action type
+🎤 Runtime Stability Issues (Important)
+
+The assistant previously appeared to "freeze" after one command.
+
+🔎 Root Cause
+
+Not execution bug.
+
+Acoustic feedback loop:
+
+Assistant speaks
+
+Microphone captures speaker audio
+
+VAD detects as speech
+
+STT transcribes assistant’s own voice
+
+Fake intents generated
+
+This created illusion of freeze.
+
+🛠 Required Runtime Hardening (Still Recommended)
+
+Before full production:
+
+Drop mic frames while speaking
+
+Increase VAD aggressiveness (Level 3)
+
+Enforce minimum speech duration
+
+Prevent STT while TTS active
+
+Add echo cancellation (future improvement)
+
+🟢 Phase 3 — Execution Engine (Current State)
+✅ Now Working
+
+UIA read screen
+
+Click by index
+
+Click by name
+
+OS abstraction layer
+
+Confirmation enforcement
+
+Risk validation
+
+Decision validation
+
+Router stability
+
+External UIA isolation
+
+⚠ Still Needs Improvement
+
+Execution logging not fully implemented
+
+Some Windows adapters incomplete
+
+Close Notepad occasionally inconsistent
+
+No persistent action audit log
+
+No retry policy for UI failures
+
+No timeout protection on UIA service
+
+🟢 Phase 4 — Vision Integration
+
+Status: ✅ Stable
+
+Includes:
+
+Screen OCR
+
+YOLOv8 object detection
+
+Scene graph reasoning
+
+Detection stabilization
+
+Mode-based behavior
+
+Camera tracking
+
+Screen monitoring
+
+Now fully integrated with voice runtime.
+
+🧪 Updated Testing Status
+UIA Tests
+Command	Status
+Read screen	✅
+Click by index	✅
+Click by name	✅
+Cross-application support	✅
+Runtime Stability
+Scenario	Status
+Back-to-back commands	⚠ Needs improvement
+Echo suppression	⚠ Partial
+Interrupt while speaking	✅
+Silence handling	✅
 Voice
-
-Gesture
-
-Vision
-
-Emotion
-
-Guarantee
-
-Exactly ONE safe action will execute.
-
-🟡 PHASE 9 — Adaptive Learning
-
-Status: 🟡 Planned
-
-Features
-
-User preference modeling
-
-Personalized shortcuts
-
-Confirmation tolerance adaptation
-
-Usage pattern learning
-
-🟡 PHASE 10 — UI & Accessibility Profiles
-
-Status: 🟡 Planned
-
-Features
-
-Voice-only mode
-
-Gesture-only mode
-
-Visual feedback dashboard
-
-High-contrast UI
-
-Slow-response mode
-
-Low-motor configuration
-
-🌍 Real-World Impact
-
-Designed for:
-
-Individuals with limited motor control
-
-Hands-free computing environments
-
-Accessibility-focused systems
-
-Safety-sensitive automation
-
-The system prioritizes:
-
-Safety over speed
-
-Determinism over randomness
-
-Confirmation over blind execution
-
-🏁 Current Status Summary
-Phase	Status
-Phase 1 — Core Engine	✅ Complete
-Phase 2 — Voice Runtime	✅ Complete
-Phase 3 — Execution Engine	✅ Complete
-Phase 4 — Vision	✅ Complete
-Phase 5 — Advanced Context	🟣 Planned
-Phase 6 — Gesture	🟠 Planned
-Phase 7 — Emotion	🔴 Planned
-Phase 8 — Multimodal Fusion	🟡 Critical
-Phase 9 — Adaptive Learning	🟡 Planned
-Phase 10 — UI & Accessibility	🟡 Planned
+↓
+Intent Parser
+↓
+Context Memory
+↓
+Safety Engine
+↓
+Fusion Engine
+↓
+Decision Router
+↓
+Execution Engine
+↓
+(UIA Service / OS Adapters / Utility / Knowledge)
+↓
+User Feedback
