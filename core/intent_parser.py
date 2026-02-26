@@ -24,7 +24,7 @@ class IntentParser:
             "search": (IntentType.SEARCH, 1),
             "type": (IntentType.TYPE_TEXT, 1),
             "write": (IntentType.TYPE_TEXT, 1),
-            "calculate": (IntentType.TYPE_TEXT, 1),
+            "calculate": ("CALCULATE", 0),  # fixed
         }
 
         self.question_patterns = [
@@ -59,22 +59,6 @@ class IntentParser:
         text = text.replace("shut down", "shutdown")
 
         # =====================================================
-        # SMALL TALK
-        # =====================================================
-
-        for pattern in self.small_talk_patterns:
-            if re.search(pattern, text):
-                return Intent(
-                    intent_type=IntentType.UNKNOWN,
-                    text=original_text,
-                    action="SMALL_TALK",
-                    confidence=0.7,
-                    confidence_source="small_talk",
-                    risk_level=0,
-                    timestamp=timestamp
-                )
-
-        # =====================================================
         # STOP CAMERA
         # =====================================================
 
@@ -107,14 +91,12 @@ class IntentParser:
             )
 
         # =====================================================
-        # HYBRID VISION QUERY RULES
+        # VISION QUERY RULES
         # =====================================================
 
-        # WHERE IS X
         match = re.search(r"\bwhere is (?:my )?(?P<object>\w+)", text)
         if match:
             obj_name = match.group("object")
-
             return Intent(
                 intent_type=IntentType.QUESTION,
                 text=original_text,
@@ -127,11 +109,9 @@ class IntentParser:
                 timestamp=timestamp
             )
 
-        # HOW MANY X
         match = re.search(r"\bhow many (?P<object>\w+)", text)
         if match:
             obj_name = match.group("object")
-
             return Intent(
                 intent_type=IntentType.QUESTION,
                 text=original_text,
@@ -144,7 +124,6 @@ class IntentParser:
                 timestamp=timestamp
             )
 
-        # PRESENCE QUERY
         if "anyone" in text or "anybody" in text:
             return Intent(
                 intent_type=IntentType.QUESTION,
@@ -158,13 +137,11 @@ class IntentParser:
                 timestamp=timestamp
             )
 
-        # SUMMARY QUERY
         if "what do you see" in text or "what can you see" in text:
             return Intent(
                 intent_type=IntentType.QUESTION,
                 text=original_text,
                 action="VISION_QUERY",
-                target=None,
                 parameters={"query_type": "summary"},
                 confidence=0.9,
                 confidence_source="vision_summary_rule",
@@ -188,7 +165,7 @@ class IntentParser:
             )
 
         # =====================================================
-        # KNOWLEDGE QUESTIONS (Fallback)
+        # KNOWLEDGE QUESTIONS
         # =====================================================
 
         for pattern in self.question_patterns:
@@ -211,14 +188,51 @@ class IntentParser:
         intent_type, risk_level, keyword = self._detect_command(text)
 
         if intent_type:
+
+            # Special case: calculate
+            if keyword == "calculate":
+                expression = text.replace("calculate", "").strip()
+                return Intent(
+                    intent_type=IntentType.QUESTION,
+                    text=original_text,
+                    action="CALCULATE",
+                    target=expression,
+                    confidence=0.95,
+                    confidence_source="keyword_rule",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
+
             target = self._extract_target(text, keyword)
-            return self._create_command_intent(
-                original_text,
-                intent_type,
-                target,
-                risk_level,
-                timestamp
+
+            return Intent(
+                intent_type=intent_type,
+                text=original_text,
+                action=intent_type.name,
+                target=target,
+                parameters={"target": target} if target else {},
+                confidence=0.95 if risk_level < 7 else 0.85,
+                confidence_source="keyword_rule",
+                risk_level=risk_level,
+                requires_confirmation=risk_level >= 7,
+                timestamp=timestamp
             )
+
+        # =====================================================
+        # SMALL TALK (Moved to bottom)
+        # =====================================================
+
+        for pattern in self.small_talk_patterns:
+            if re.search(pattern, text):
+                return Intent(
+                    intent_type=IntentType.UNKNOWN,
+                    text=original_text,
+                    action="SMALL_TALK",
+                    confidence=0.7,
+                    confidence_source="small_talk",
+                    risk_level=0,
+                    timestamp=timestamp
+                )
 
         # =====================================================
         # FALLBACK
@@ -237,9 +251,11 @@ class IntentParser:
     # =========================================================
 
     def _detect_command(self, text: str) -> Tuple[Optional[IntentType], int, Optional[str]]:
-        for keyword, (intent_type, risk_level) in self.command_keywords.items():
+        for keyword, value in self.command_keywords.items():
             if re.search(rf"\b{keyword}\b", text):
-                return intent_type, risk_level, keyword
+                if keyword == "calculate":
+                    return IntentType.QUESTION, 0, keyword
+                return value[0], value[1], keyword
         return None, 0, None
 
     # =========================================================
@@ -248,41 +264,9 @@ class IntentParser:
         parts = text.split(keyword, 1)
         if len(parts) < 2:
             return None
-
         tokens = parts[1].strip().split()
-
         cleaned = [t for t in tokens if t not in self.filler_words]
-
         return " ".join(cleaned).strip() or None
-
-    # =========================================================
-
-    def _create_command_intent(
-        self,
-        original_text: str,
-        intent_type: IntentType,
-        target: Optional[str],
-        risk_level: int,
-        timestamp: float
-    ) -> Intent:
-
-        parameters: Dict[str, str] = {}
-
-        if target:
-            parameters["target"] = target
-
-        return Intent(
-            intent_type=intent_type,
-            text=original_text,
-            action=intent_type.name,
-            target=target,
-            parameters=parameters,
-            confidence=0.95 if risk_level < 7 else 0.85,
-            confidence_source="keyword_rule",
-            risk_level=risk_level,
-            requires_confirmation=risk_level >= 7,
-            timestamp=timestamp
-        )
 
     # =========================================================
 

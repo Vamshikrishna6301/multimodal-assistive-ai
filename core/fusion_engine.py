@@ -45,7 +45,9 @@ class FusionEngine:
     def process_text(self, text: str) -> Decision:
 
         start_time = time.time()
-        text = self._normalize_input(text)
+
+        # ❌ REMOVE double normalization
+        # text = self._normalize_input(text)
 
         intent = self.parser.parse(
             text,
@@ -55,10 +57,7 @@ class FusionEngine:
         if intent.intent_type == IntentType.CONTROL:
             self._handle_mode_control(intent)
 
-        # Enrich context
         intent = self.memory.enrich(intent)
-
-        # Safety evaluation
         intent = self.safety.evaluate(intent, self.mode_manager.get_mode())
 
         if intent.blocked_reason:

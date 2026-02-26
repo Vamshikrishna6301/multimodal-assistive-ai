@@ -60,6 +60,10 @@ class DecisionRouter:
             )
 
         action = decision.get("action")
+        print("DEBUG ROUTER ACTION VALUE:", action, "| TYPE:", type(action))
+
+        if isinstance(action, str):
+            action = action.upper()
 
         # --------------------------------------------------
         # VISION QUERY (Highest priority)

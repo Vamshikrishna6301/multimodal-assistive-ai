@@ -1,0 +1,1 @@
+[ERROR] 2026-02-26 16:04:22 - infrastructure.error_handling: {"timestamp": "2026-02-26T10:34:22.901941", "level": "ERROR", "message": "All retry attempts exhausted for verify_system_ready", "context": {}, "function": "verify_system_ready", "attempts": 3, "exception": "Logger._log() got an unexpected keyword argument 'gpu_device'", "exception_type": "str"}

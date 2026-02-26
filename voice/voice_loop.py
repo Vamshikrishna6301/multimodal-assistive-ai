@@ -2,6 +2,7 @@ import collections
 import time
 import queue
 import threading
+import re
 
 from voice.mic_stream import MicrophoneStream
 from voice.vad import VAD
@@ -32,12 +33,9 @@ class VoiceLoop:
         self.tts = TTS(runtime=self.runtime)
         print("  ✓ TTS initialized")
 
-        # Fusion owns ContextMemory
         self.fusion = FusionEngine()
         print("  ✓ Fusion engine initialized")
 
-        # Inject shared memory into router
-        # Inject TTS into VisionExecutor
         self.router = DecisionRouter(self.fusion.memory)
         self.router.execution_engine.dispatcher.vision_executor.set_tts(self.tts)
         print("  ✓ Router initialized")
@@ -53,7 +51,7 @@ class VoiceLoop:
         print("✅ All components initialized successfully!\n")
 
     # =====================================================
-    # START PRODUCTION
+    # START
     # =====================================================
 
     def start_production(self):
@@ -83,7 +81,7 @@ class VoiceLoop:
         print("✅ Assistant terminated cleanly.")
 
     # =====================================================
-    # THREAD MANAGEMENT
+    # THREADS
     # =====================================================
 
     def _start_threads(self):
@@ -124,11 +122,9 @@ class VoiceLoop:
                         self.silence_frames > MAX_SILENCE_FRAMES
                         and len(self.buffer) > MIN_SPEECH_FRAMES
                     ):
-
                         audio = b"".join(self.buffer)
                         self.buffer.clear()
                         self.silence_frames = 0
-
                         self.audio_queue.put(audio)
 
         except Exception as e:
@@ -149,7 +145,6 @@ class VoiceLoop:
                 except queue.Empty:
                     continue
 
-                # Wait briefly if assistant speaking
                 wait_start = time.time()
                 while self.runtime.is_speaking() and (time.time() - wait_start) < 2.0:
                     time.sleep(0.05)
@@ -159,19 +154,7 @@ class VoiceLoop:
                 if not text:
                     continue
 
-                text = text.strip()
                 print(f"\n🗣️ Heard: {text}")
-
-                # Always allow confirmation words
-                if text.lower() in ["yes", "y", "confirm", "no", "n", "cancel"]:
-                    self.text_queue.put(text)
-                    continue
-
-                words = text.split()
-
-                # Skip useless noise
-                if len(words) <= 1 and text.lower() not in ["stop", "exit"]:
-                    continue
 
                 self.text_queue.put(text)
 
@@ -192,71 +175,67 @@ class VoiceLoop:
                 except queue.Empty:
                     continue
 
-                text = text.lower().strip()
+                clean_text = self._normalize(text)
 
-                # ---------------------------------------------
-                # CONFIRMATION HANDLING
-                # ---------------------------------------------
+                # =====================================================
+                # HARD SYSTEM INTERRUPTS (Highest Priority)
+                # =====================================================
+
+                if self._is_exit_command(clean_text):
+                    print("🛑 Assistant shutting down...")
+                    self.tts.stop()
+                    self.tts.speak("Shutting down assistant.")
+                    self.runtime.stop()
+                    return
+
+                if self._is_stop_command(clean_text):
+                    print("🛑 Interrupting speech...")
+                    self.tts.stop()
+                    continue
+
+                # =====================================================
+                # Confirmation handling
+                # =====================================================
+
                 if self.runtime.is_awaiting_confirmation():
 
-                    print("DEBUG: awaiting confirmation, got:", text)
-
-                    if text in ["yes", "y", "confirm"]:
-
-                        print("🔒 Confirmation received: executing pending action")
-
+                    if clean_text in ["yes", "y", "confirm"]:
                         pending = self.runtime.pending_intent
                         self._execute_confirmed(pending)
-
                         self.runtime.clear_confirmation()
                         continue
 
-                    if text in ["no", "n", "cancel"]:
-                        print("🔐 Confirmation declined: cancelling action")
+                    if clean_text in ["no", "n", "cancel"]:
                         print("🤖 Assistant: Action cancelled.")
                         self.tts.speak("Action cancelled.")
                         self.runtime.clear_confirmation()
                         continue
 
-                    print("DEBUG: still awaiting confirmation; ignoring input")
                     continue
 
-                # ---------------------------------------------
-                # SYSTEM COMMANDS
-                # ---------------------------------------------
-                if "exit" in text or "quit" in text:
-                    print("🛑 Assistant shutting down...")
-                    print("🤖 Assistant: Shutting down assistant.")
-                    self.tts.speak("Shutting down assistant.")
-                    self.runtime.stop()
-                    return
+                # =====================================================
+                # Social small talk
+                # =====================================================
 
-                if text in ["hello", "hi"]:
-                    print("🤖 Assistant: Hello! How can I help you?")
+                if clean_text in ["hello", "hi"]:
                     self.tts.speak("Hello! How can I help you?")
                     continue
 
-                if text in ["thank you", "thanks"]:
-                    print("🤖 Assistant: You're welcome.")
+                if clean_text in ["thank you", "thanks"]:
                     self.tts.speak("You're welcome.")
                     continue
 
-                if text in ["stop", "cancel", "abort"]:
-                    print("🛑 Interrupting speech...")
-                    self.tts.stop()
-                    continue
-                if text == "stop camera":
-                    print("🛑 Stopping camera...")
-                    self.router.execution_engine.dispatcher.vision_executor.camera_detector.stop()
-                    continue
+                # =====================================================
+                # Normal Intent Handling
+                # =====================================================
 
-                self._handle_intent(text)
+                self._handle_intent(clean_text)
 
             except Exception as e:
                 print("⚠️ Intent worker crashed:", e)
 
     # =====================================================
-    # HANDLE INTENT
+    # INTENT ROUTING
     # =====================================================
 
     def _handle_intent(self, text: str):
@@ -270,18 +249,13 @@ class VoiceLoop:
         print(f"📊 Decision Status: {status}")
 
         if status == "BLOCKED":
-
-    # Ignore low confidence noise silently
             if message == "Low confidence input":
                 print("… Ignored low confidence input")
                 return
-
-            print(f"🚫 {message}")
             self.tts.speak(message or "Action blocked.")
             return
         
         if status == "NEEDS_CONFIRMATION":
-            print(f"🔐 {message}")
             self.runtime.set_confirmation(decision_dict)
             self.tts.speak(message or "Please confirm.")
             return
@@ -296,36 +270,42 @@ class VoiceLoop:
                 print(f"🤖 Assistant: {response.spoken_message}")
                 self.tts.speak(response.spoken_message)
             else:
-                print("🤖 Assistant: Done.")
                 self.tts.speak("Done.")
 
     # =====================================================
-    # EXECUTE CONFIRMED
+    # CONFIRMED EXECUTION
     # =====================================================
 
     def _execute_confirmed(self, decision_dict: dict):
 
-        try:
-            if not decision_dict:
-                print("🤖 Assistant: No pending action.")
-                self.tts.speak("No pending action.")
-                return
+        if not decision_dict:
+            self.tts.speak("No pending action.")
+            return
 
-            confirmed_decision = decision_dict.copy()
-            confirmed_decision["status"] = "APPROVED"
-            confirmed_decision["confirmed"] = True
+        confirmed_decision = decision_dict.copy()
+        confirmed_decision["status"] = "APPROVED"
+        confirmed_decision["confirmed"] = True
 
-            self.runtime.start_execution()
-            response = self.router.route(confirmed_decision)
-            self.runtime.finish_execution()
+        self.runtime.start_execution()
+        response = self.router.route(confirmed_decision)
+        self.runtime.finish_execution()
 
-            if response and hasattr(response, "spoken_message"):
-                print(f"🤖 Assistant: {response.spoken_message}")
-                self.tts.speak(response.spoken_message)
-            else:
-                print("🤖 Assistant: Done.")
-                self.tts.speak("Done.")
+        if response and hasattr(response, "spoken_message"):
+            self.tts.speak(response.spoken_message)
+        else:
+            self.tts.speak("Done.")
 
-        except Exception as e:
-            print("⚠️ Execution after confirmation failed:", e)
-            self.tts.speak("I failed to execute the action.")
+    # =====================================================
+    # UTILITIES
+    # =====================================================
+
+    def _normalize(self, text: str) -> str:
+        text = text.lower().strip()
+        text = re.sub(r"[^\w\s]", "", text)
+        return text
+
+    def _is_stop_command(self, text: str) -> bool:
+        return text.startswith("stop") or text in ["cancel", "abort"]
+
+    def _is_exit_command(self, text: str) -> bool:
+        return text in ["exit", "quit", "shutdown assistant"]
