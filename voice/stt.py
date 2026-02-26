@@ -5,28 +5,28 @@ import threading
 
 class STT:
     """
-    Production Whisper STT (GPU-safe + Thread-safe)
+    Production Whisper STT (GPU-EXCLUSIVE MODE)
+    Optimized for NVIDIA CUDA with no CPU fallback
     """
 
     def __init__(self):
 
         self._lock = threading.Lock()
+        self.model = None
+        self.device_mode = "GPU"
 
+        print("🔄 Loading Whisper on GPU (CUDA)...")
         try:
-            print("🔄 Loading Whisper on GPU...")
             self.model = WhisperModel(
                 "small.en",
                 device="cuda",
                 compute_type="float16"
             )
-            print("✅ GPU mode enabled")
+            print("✅ GPU mode enabled - Whisper loaded on NVIDIA CUDA")
         except Exception as e:
-            print("⚠️ GPU unavailable, falling back to CPU:", e)
-            self.model = WhisperModel(
-                "small.en",
-                device="cpu",
-                compute_type="int8"
-            )
+            print(f"❌ CRITICAL: Failed to load Whisper on GPU: {e}")
+            print("   Ensure CUDA drivers are installed and PATH includes PyTorch CUDA libs")
+            raise
 
     # =====================================================
     # TRANSCRIBE (Safe)
@@ -65,7 +65,7 @@ class STT:
                 segments = list(segments_generator)
 
         except Exception as e:
-            print("⚠️ STT inference error:", e)
+            print(f"❌ STT GPU inference error: {e}")
             return ""
 
         text = " ".join(seg.text for seg in segments).strip().lower()

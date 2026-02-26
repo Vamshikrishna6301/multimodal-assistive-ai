@@ -1,0 +1,1 @@
+{"timestamp": "2026-02-25T19:13:47.001755", "level": "WARNING", "message": "Attempt 1 failed, retrying in 0.1s", "context": {}, "function": "test_retry", "attempt": 1, "delay": 0.1, "exception": "Test error"}

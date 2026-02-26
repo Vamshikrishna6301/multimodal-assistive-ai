@@ -18,19 +18,30 @@ class VoiceLoop:
 
     def __init__(self, runtime: AssistantRuntime = None):
 
+        print("🔧 Initializing Voice Assistant components...")
+        
         self.runtime = runtime or AssistantRuntime()
+        print("  ✓ Runtime initialized")
 
         self.vad = VAD()
+        print("  ✓ VAD initialized")
+        
         self.stt = STT()
+        print("  ✓ STT initialized (Whisper loaded)")
+        
         self.tts = TTS(runtime=self.runtime)
+        print("  ✓ TTS initialized")
 
         # Fusion owns ContextMemory
         self.fusion = FusionEngine()
+        print("  ✓ Fusion engine initialized")
 
         # Inject shared memory into router
-# Inject TTS into VisionExecutor
+        # Inject TTS into VisionExecutor
         self.router = DecisionRouter(self.fusion.memory)
         self.router.execution_engine.dispatcher.vision_executor.set_tts(self.tts)
+        print("  ✓ Router initialized")
+        
         self.audio_queue = queue.Queue()
         self.text_queue = queue.Queue()
 
@@ -38,6 +49,8 @@ class VoiceLoop:
         self.silence_frames = 0
 
         self._threads = []
+        
+        print("✅ All components initialized successfully!\n")
 
     # =====================================================
     # START PRODUCTION
@@ -48,8 +61,12 @@ class VoiceLoop:
         print("\n" + "=" * 60)
         print("🚀 PRODUCTION VOICE ASSISTANT STARTED")
         print("=" * 60)
+        print("📢 Initializing audio threads...")
 
         self._start_threads()
+        
+        print("✅ All threads started. Ready to listen for voice commands.")
+        print("   Speak clearly when ready... (say 'stop' to exit)\n")
 
         try:
             while self.runtime.running:
